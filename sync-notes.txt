@@ -1,0 +1,25 @@
+#################################
+# DOWNSTREAM 4.2
+#################################
+
+resource-manager_1  | pulp: rq.worker:INFO: resource-manager: pulpcore.tasking.tasks._queue_reserved_task(<function sync at 0x7f7a2e122d90>, '8d538d95-d852-4f96-94f8-1f9c63943c82', ['/pulp/api/v3/remotes/ansible/collection/80ae4b6b-bfb9-4831-aa0c-b43d32ce2..., (), {'remote_pk': UUID('80ae4b6b-bfb9-4831-aa0c-b43d32ce2fed'), 'repository_pk'..., {}) (a42067e2-259d-45d8-9203-825a67e7f7dc)
+api_1               | 172.18.0.8 - - [27/Apr/2022:18:23:11 +0000] "POST /api/automation-hub/content/rh-certified/v3/sync/ HTTP/1.1" 200 47 "http://192.168.122.22:8002/ui/repositories?page_size=10&tab=remote" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36"
+api_1               | 172.18.0.8 - - [27/Apr/2022:18:23:11 +0000] "GET /api/automation-hub/_ui/v1/remotes/?tab=remote&offset=0&limit=10 HTTP/1.1" 200 2603 "http://192.168.122.22:8002/ui/repositories?page_size=10&tab=remote" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36"
+resource-manager_1  | pulp: rq.worker:INFO: resource-manager: Job OK (a42067e2-259d-45d8-9203-825a67e7f7dc)
+worker_1            | pulp: rq.worker:INFO: 1@3278c1f5fe97: pulp_ansible.app.tasks.collections.sync(mirror=True, remote_pk=UUID('80ae4b6b-bfb9-4831-aa0c-b43d32ce2fed'), repository_pk=UUID('7eb27e4f-1847-49a2-ba37-a1c3198f923e')) (8d538d95-d852-4f96-94f8-1f9c63943c82)
+worker_1            | pulp: rq.worker:INFO: 1@3278c1f5fe97: Job OK (8d538d95-d852-4f96-94f8-1f9c63943c82)
+worker_1            | pulp: rq.worker:INFO: 1@3278c1f5fe97: pulpcore.tasking.tasks._release_resources('8d538d95-d852-4f96-94f8-1f9c63943c82') (87bfda40-2dcd-4cfd-8535-c07ece68ec4a)
+worker_1            | pulp: rq.worker:INFO: 1@3278c1f5fe97: Job OK (87bfda40-2dcd-4cfd-8535-c07ece68ec4a)
+api_1               | 172.18.0.8 - - [27/Apr/2022:18:23:16 +0000] "GET /api/automation-hub/_ui/v1/remotes/?tab=remote&offset=0&limit=10 HTTP/1.1" 200 2707 "http://192.168.122.22:8002/ui/repositories?page_size=10&tab=remote" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36"
+
+#################################
+# UPSTREAM HEAD
+#################################
+
+api_1          | 172.18.0.8 - - [27/Apr/2022:18:22:09 +0000] "GET /api/automation-hub/ HTTP/1.1" 200 245 "-" "pulpcore/3.7.9 (cpython 3.6.8-final0, Linux x86_64) (aiohttp 3.7.4.post0)"
+api_1          | 172.18.0.8 - - [27/Apr/2022:18:22:10 +0000] "GET /api/automation-hub/v3/collections/?offset=0&limit=100 HTTP/1.1" 302 0 "-" "pulpcore/3.7.9 (cpython 3.6.8-final0, Linux x86_64) (aiohttp 3.7.4.post0)"
+api_1          | 172.18.0.8 - - [27/Apr/2022:18:22:10 +0000] "GET /api/automation-hub/v3/plugin/ansible/content/published/collections/index/?offset=0&limit=100 HTTP/1.1" 200 275 "-" "pulpcore/3.7.9 (cpython 3.6.8-final0, Linux x86_64) (aiohttp 3.7.4.post0)"
+api_1          | 172.18.0.8 - - [27/Apr/2022:18:23:11 +0000] "GET /api/automation-hub/ HTTP/1.1" 200 245 "-" "pulpcore/3.7.9 (cpython 3.6.8-final0, Linux x86_64) (aiohttp 3.7.4.post0)"
+api_1          | 172.18.0.8 - - [27/Apr/2022:18:23:12 +0000] "GET /api/automation-hub/v3/collections/?offset=0&limit=100 HTTP/1.1" 302 0 "-" "pulpcore/3.7.9 (cpython 3.6.8-final0, Linux x86_64) (aiohttp 3.7.4.post0)"
+api_1          | 172.18.0.8 - - [27/Apr/2022:18:23:12 +0000] "GET /api/automation-hub/v3/plugin/ansible/content/published/collections/index/?offset=0&limit=100 HTTP/1.1" 200 275 "-" "pulpcore/3.7.9 (cpython 3.6.8-final0, Linux x86_64) (aiohttp 3.7.4.post0)"
+

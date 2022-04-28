@@ -1,0 +1,8 @@
+#!/bin/bash
+
+for CONTAINERID in $(docker ps -a | egrep -v ^CONTAINER | awk '{print $1}'); do
+    echo "Killing ${CONTAINERID} ..."
+    docker kill ${CONTAINERID}
+    echo "Removing ${CONTAINERID} ..."
+    docker rm ${CONTAINERID}
+done

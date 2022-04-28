@@ -1,0 +1,10 @@
+[galaxy_server.hub_stage]
+#ui synclist repo ex url=https://ci.cloud.redhat.com/api/automation-hub/content/synctest/v3/collections
+#url=https://cloud.stage.redhat.com/api/automation-hub/content/published/  # can specify distro if not default
+url=https://cloud.stage.redhat.com/api/automation-hub/
+auth_url=https://sso.stage.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token
+# proxy url for UI: http://squid.corp.redhat.com:3128
+token=
+
+
+https://docs.engineering.redhat.com/display/AUTOHUB/Automation+Hub+Home
