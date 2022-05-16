@@ -1,3 +1,6 @@
+
+# Default environment variable values
+
 * ACCEPT_EULA=Y
 * AGENT_TOOLSDIRECTORY=/opt/hostedtoolcache
 * ANDROID_HOME=/usr/local/lib/android/sdk
