@@ -1,0 +1,303 @@
+#!/usr/bin/env python3
+
+import copy
+import os
+import shutil
+import subprocess
+import sys
+import yaml
+
+from jinja2 import Template
+
+
+CONSTANTS = {
+    'test': 'pulp',
+    'PY_COLORS': '1',
+    'ANSIBLE_FORCE_COLOR': '1',
+    'GITHUB_PULL_REQUEST': '111',
+    'GITHUB_PULL_REQUEST_BODY': 'stuff',
+    'GITHUB_BRANCH': 'master',
+    'GITHUB_REF': 'null',
+    'GITHUB_REPO_SLUG': 'galaxy_ng',
+    'GITHUB_CONTENT': 'https://github.com/test/test',
+    'GITHUB_TOKEN': '1111',
+    'GITHUB_EVENT_NAME': 'push',
+    'GITHUB_WORKFLOW': 'foobar',
+    'GITHUB_PR_COMMITS_URL': '',
+    'START_COMMIT': '',
+    'END_COMMIT': '',
+    'BRANCH': 'master',
+    'GITHUB_WORKSPACE': '/app/src/galaxy_ng',
+    'GITHUB_ENV': '/app/.github_env',
+    'APP_PATH': '/app',
+    'GALAXY_PATH': '/app/src/galaxy_ng',
+    'DEBIAN_FRONTEND': 'noninteractive',
+    'SECRETS_CONTEXT': '{}'
+}
+
+
+class WorkflowJobStep:
+
+    _name = None
+    _ds = None
+    _env = None
+    _run = None
+    _uses = None
+
+    def __init__(self, ds, name=None):
+        self._name = name
+        self._ds = ds
+        self.parse()
+
+    def __repr__(self):
+        return f'<WorkflowJobStep: {self._name or self._uses}>'
+
+    def parse(self):
+        if 'name' in self._ds:
+            self._name = self._ds['name']
+        if 'env' in self._ds:
+            self._env = self._ds['env']
+        if 'run' in self._ds:
+            self._run = self._ds['run']
+
+        if 'uses' in self._ds:
+            self._uses = self._ds['uses']
+
+    def _fix_cryptography(self):
+        cmd = "pip show cryptography | egrep ^Version | cut -d\: -f2 | tr -d ' '"
+        pid = subprocess.run(
+            cmd,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        version = pid.stdout.decode('utf-8').strip()
+        if version != '36.0.2':
+            print('## FIXING CRYPTOGRAPY PACKAGE')
+            cmd = 'pip uninstall -y cryptography'
+            subprocess.run(cmd, shell=True)
+            cmd = 'pip install cryptography==36.0.2'
+            subprocess.run(cmd, shell=True)
+
+    def before(self):
+        self._fix_cryptography()
+
+    def after(self):
+        self._fix_cryptography()
+
+    def execute(self, matrix=None):
+
+        print('#' * 50)
+        print(f'# STEP: {self._name}')
+        print('#' * 50)
+
+        if self._uses is not None:
+            return
+
+        self.before()
+
+        env = dict(copy.deepcopy(os.environ))
+        for k, v in CONSTANTS.items():
+            env[k] = v
+
+        # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
+        if os.path.exists(CONSTANTS['GITHUB_ENV']):
+            with open(CONSTANTS['GITHUB_ENV'], 'r') as f:
+                fdata = f.read()
+            lines = fdata.split('\n')
+            lines = [x.strip() for x in lines if x.strip()]
+            for line in lines:
+                parts = line.split('=', 1)
+                key = parts[0]
+                val = parts[1]
+                env[key] = val
+
+        # template env vars ...
+        for k,v in env.items():
+            if '${{' not in v:
+                continue
+            import epdb; epdb.st()
+
+        # echo "TEST=${{ matrix.env.TEST }}" >> $GITHUB_ENV\n
+        if '${{' in self._run:
+            cmd = self._run
+            cmd_t = cmd.replace('${{', '{{')
+            t = Template(cmd_t)
+            cmd = t.render(matrix=matrix)
+        else:
+            cmd = self._run
+
+        pid = subprocess.run(cmd, shell=True, env=env)
+
+        if pid.returncode != 0:
+            import epdb; epdb.st()
+
+        assert pid.returncode == 0
+
+        self.after()
+
+
+class WorkflowJob:
+
+    _name = None
+    _ds = None
+    _steps = None
+    _matrix = None
+
+    def __init__(self, ds, name=None):
+        self._name = name
+        self._ds = ds
+        self.parse()
+
+    def __repr__(self):
+        return f'<WorkflowJob: {self._name}>'
+
+    def parse(self):
+
+        self._steps = []
+        for sdata in self._ds['steps']:
+            stp = WorkflowJobStep(sdata, name=sdata.get('name'))
+            self._steps.append(stp)
+
+        # FIXME - only handles a matrix with a single list
+        if 'strategy' in self._ds:
+            if 'matrix' in self._ds['strategy']:
+                matrix = []
+                bits = self._ds['strategy']['matrix']
+                for item in bits['env']:
+                    key = list(item.keys())[0]
+                    val = list(item.values())[0]
+                    m = {'env': dict([(key, val)])}
+                    matrix.append(m)
+                self._matrix = matrix
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def steps(self):
+        return self._steps
+
+    def clean(self):
+
+        # each job should have a fresh env?
+        if os.path.exists(CONSTANTS['GITHUB_ENV']):
+            os.remove(CONSTANTS['GITHUB_ENV'])
+
+        # .netrc is stupid
+        if os.path.exists(os.path.expanduser('~/.netrc')):
+            os.remove(os.path.expanduser('~/.netrc'))
+
+        # pulp ci scripts assume everything is clean, so we have to cleanup everytime ...
+        packages = [
+            'galaxy-importer',
+            'pulp_ansible',
+            'pulp_container',
+            'pulpcore',
+            'pulp-openapi-generator',
+            'pulp-smash'
+        ]
+        for pkg in packages:
+            pkg_path = os.path.join(CONSTANTS['APP_PATH'], 'src', pkg)
+            if os.path.exists(pkg_path):
+                shutil.rmtree(pkg_path)
+
+        psmash = os.path.join(os.path.expanduser('~'), '.config', 'pulp_smash')
+        if os.path.exists(psmash):
+            shutil.rmtree(psmash)
+
+        local = os.path.join(os.path.expanduser('~'), '.local')
+        if os.path.exists(local):
+            shutil.rmtree(local)
+
+        gem = os.path.join(os.path.expanduser('~'), '.gem')
+        if os.path.exists(gem):
+            shutil.rmtree(gem)
+
+        cache = os.path.join(os.path.expanduser('~'), '.cache')
+        if os.path.exists(cache):
+            shutil.rmtree(cache)
+
+        _docker = os.path.join(os.path.expanduser('~'), '.docker')
+        if os.path.exists(_docker):
+            shutil.rmtree(_docker)
+
+        _ansible = os.path.join(os.path.expanduser('~'), '.ansible')
+        if os.path.exists(_ansible):
+            shutil.rmtree(_ansible)
+
+    def execute(self):
+
+        print('#' * 50)
+        print(f'# {self._name}')
+        print('#' * 50)
+
+        if self._matrix:
+
+            for matrix in self._matrix:
+
+                if matrix['env']['TEST'] != 'pulp':
+                    continue
+
+                self.clean()
+
+                for wstep in self._steps:
+                    wstep.execute(matrix=matrix)
+
+        else:
+
+            self.clean()
+
+            for wstep in self._steps:
+                wstep.execute()
+
+
+class Workflow:
+
+    _name = None
+    _ds = None
+    _jobs = None
+    _job_names = None
+
+    def __init__(self, filename):
+        self.filename = filename
+        self.parse()
+
+    def __repr__(self):
+        return f'<Workflow: {self.filename} {self._name}>'
+
+    def parse(self):
+        with open(self.filename, 'r') as f:
+            self._ds = yaml.safe_load(f)
+        self._name = self._ds.get('name')
+
+        self._job_names = list(self._ds['jobs'].keys())
+
+        self._jobs = []
+        for jn in self._job_names:
+            jdata = self._ds['jobs'][jn]
+            job = WorkflowJob(jdata, name=jn)
+            self._jobs.append(job)
+
+    @property
+    def jobs(self):
+        return self._jobs
+
+    @property
+    def job_names(self):
+        return self._job_names
+
+
+def main():
+    fn = sys.argv[1]
+    wf = Workflow(fn)
+    print(wf)
+    for job in wf.jobs:
+        print(job)
+        if job.name == 'test':
+            job.execute()
+
+
+if __name__ == "__main__":
+    main()

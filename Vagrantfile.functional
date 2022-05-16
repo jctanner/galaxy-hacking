@@ -1,0 +1,59 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+
+$script = <<-SCRIPT 
+
+export DEBIAN_FRONTEND=noninteractive
+
+if [[ ! -d /home/vagrant/.venv ]]; then
+	which virtualenv || sudo apt -y install python3-virtualenv
+    su -l vagrant -c 'virtualenv /home/vagrant/.venv'
+fi
+su -l vagrant -c '/home/vagrant/.venv/bin/pip install --upgrade pip wheel'
+su -l vagrant -c '/home/vagrant/.venv/bin/pip install --upgrade epdb'
+su -l vagrant -c '/home/vagrant/.venv/bin/pip install --upgrade pyyaml'
+su -l vagrant -c '/home/vagrant/.venv/bin/pip install --upgrade jinja2'
+su -l vagrant -c '/home/vagrant/.venv/bin/pip install cryptography==36.0.2'
+chown vagrant:vagrant /app
+chown vagrant:vagrant /app/src
+dpkg -L libpq-dev || apt -y install libpq-dev
+dpkg -L g++ || apt -y install g++
+dpkg -L gcc || apt -y install gcc
+dpkg -L python3-dev || apt -y install python3-dev
+dpkg -L jq || apt -y install jq
+
+which docker
+RC=$?
+if [[ $RC != 0 ]]; then
+  # https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04
+  apt -y install apt-transport-https ca-certificates curl software-properties-common
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+  add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
+  apt-cache policy docker-ce
+  apt -y install docker-ce
+  usermod -aG docker vagrant
+fi
+
+if [ ! -d /var/lib/gems/2.7.0 ]; then
+  mkdir -p /var/lib/gems/2.7.0
+fi
+chown vagrant:vagrant /var/lib/gems/2.7.0
+
+echo '{"insecure-registries" : ["https://pulp:443"]}' > /etc/docker/daemon.json
+systemctl restart docker
+
+SCRIPT
+
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "generic/ubuntu2004"
+  config.vm.synced_folder ".", "/app/src/galaxy_ng", type: "nfs", nfs_udp: false
+  config.vm.provision "shell", inline: $script
+
+  config.vm.provider :libvirt do |libvirt|
+    libvirt.cpus = 4
+    libvirt.memory = 8092
+  end
+
+end
