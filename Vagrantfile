@@ -9,6 +9,11 @@ Vagrant.configure("2") do |config|
   #config.vm.box = "generic/fedora34"
   config.vm.synced_folder ".", "/vagrant", type: "nfs", nfs_udp: false
 
+  config.vm.define "galaxy-dev" do |dev|
+    dev.vm.box = "generic/ubuntu2004"
+    dev.vm.hostname = "galaxy-dev"
+  end
+
   config.vm.define "galaxy-latest" do |latest|
     latest.vm.box = "generic/ubuntu2004"
     latest.vm.hostname = "galaxy-latest"
@@ -51,6 +56,10 @@ Vagrant.configure("2") do |config|
      which ansible || pip3 install ansible
      ansible-galaxy role install geerlingguy.docker
      cd /vagrant && ansible-playbook -i 'localhost,' docker.yml
+
+     mkdir -p /var/lib/gems
+     chown -R vagrant:vagrant /var/lib/gems
+
   SHELL
 
 end

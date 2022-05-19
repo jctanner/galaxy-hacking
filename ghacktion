@@ -14,6 +14,7 @@ import yaml
 from pprint import pprint
 
 import docker
+import jinja2
 from jinja2 import Template
 import requests
 
@@ -310,17 +311,45 @@ class WorkflowJobStep:
         if self._env:
             env.update(self._env)
 
+        # need a custom filter
+        #   REDIS_DISABLED: ${{ contains('', matrix.env.TEST) }}
+        def jinja_contains(a,b):
+            return b in a
+
+        # need another custom filter
+        #   SECRETS_CONTEXT: ${{ toJson(secrets) }}
+        def to_json(data):
+            return json.dumps(data)
+
         # template env vars ...
         for k,v in env.items():
             if '${{' not in v:
                 continue
+
+            jenv = jinja2.Environment()
+            jenv.filters['contains'] = jinja_contains
+
             tval = v.replace('${{', '{{')
+
+            '''
             t = Template(tval)
             try:
                 env[k] = t.render(matrix=matrix, github=self.github, secrets=self.secrets)
             except Exception as e:
                 print(e)
                 import epdb; epdb.st()
+            '''
+
+            tmpl = jenv.from_string(tval)
+            newval = tmpl.render(
+                matrix=matrix,
+                github=self.github,
+                secrets=self.secrets,
+                contains=jinja_contains,
+                toJson=to_json
+            )
+            env[k] = newval
+
 
         # echo "TEST=${{ matrix.env.TEST }}" >> $GITHUB_ENV\n
         if '${{' in self._run:
@@ -400,15 +429,15 @@ class WorkflowJob:
 
     def clean(self):
 
-        '''
         # each job should have a fresh env?
-        if os.path.exists(CONSTANTS['GITHUB_ENV']):
-            os.remove(CONSTANTS['GITHUB_ENV'])
+        #if os.path.exists(CONSTANTS['GITHUB_ENV']):
+        #    os.remove(CONSTANTS['GITHUB_ENV'])
 
         # .netrc is stupid
         if os.path.exists(os.path.expanduser('~/.netrc')):
             os.remove(os.path.expanduser('~/.netrc'))
 
+        '''
         # pulp ci scripts assume everything is clean, so we have to cleanup everytime ...
         packages = [
             'galaxy-importer',
@@ -422,6 +451,7 @@ class WorkflowJob:
             pkg_path = os.path.join(CONSTANTS['APP_PATH'], 'src', pkg)
             if os.path.exists(pkg_path):
                 shutil.rmtree(pkg_path)
+        '''
 
         psmash = os.path.join(os.path.expanduser('~'), '.config', 'pulp_smash')
         if os.path.exists(psmash):
@@ -446,9 +476,6 @@ class WorkflowJob:
         _ansible = os.path.join(os.path.expanduser('~'), '.ansible')
         if os.path.exists(_ansible):
             shutil.rmtree(_ansible)
-        '''
-
-        pass
 
     def execute(self, checkout=None, debug=False):
 
