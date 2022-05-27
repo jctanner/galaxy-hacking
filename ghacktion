@@ -101,10 +101,32 @@ class WorkflowJobStep:
             for candidate in candidates:
                 shutil.rmtree(candidate)
 
-    def before(self):
+    def _ffwd_pulp_ci(self):
+        # ansible-playbook -v
+        # .github/workflows/scripts/install.sh:ansible-playbook build_container.yaml
+        # .github/workflows/scripts/install.sh:ansible-playbook start_container.yaml
+        subprocess.run(
+            "sed -i.bak 's|ansible-playbook build|ansible-playbook -v build|' .github/workflows/scripts/install.sh",
+            shell=True
+        )
+        subprocess.run(
+            "sed -i.bak 's|ansible-playbook build|ansible-playbook -v start|' .github/workflows/scripts/install.sh",
+            shell=True
+        )
 
+        '''
+        # do not constantly rebuild container
+        #   .ci/ansible/build_container.yaml
+        subprocess.run(
+            "sed -i.bak 's#command: \"docker build #shell: \"docker image inspect pulp:ci_build || docker build#' .ci/ansible/build_container.yaml",
+            shell=True
+        )
+        '''
+
+    def before(self):
         self._clean_intermediate_checkouts()
         self._fix_cryptography()
+        self._ffwd_pulp_ci()
 
     def after(self):
         self._fix_cryptography()
@@ -240,13 +262,14 @@ class WorkflowJobStep:
         # make a venv?
         if os.path.exists('.venv'):
             shutil.rmtree('.venv')
-        subprocess.run('virtualenv .venv', shell=True)
+        pid = subprocess.run('virtualenv .venv', shell=True)
+        assert pid.returncode == 0
 
-        '''
         # need some packages?
-        for pkg in ['requests']:
+        for pkg in ['pytest']:
             subprocess.run(f'.venv/bin/pip install {pkg}', shell=True)
 
+        '''
         # get current path ...
         PATH = env.get('PATH')
         if PATH is None:
@@ -284,8 +307,12 @@ class WorkflowJobStep:
         if PATH is None:
             res = subprocess.run('echo $PATH', shell=True, env=env, stdout=subprocess.PIPE)
             PATH = res.stdout.decode('utf-8').strip()
-        if not PATH.startswith('.venv/bin:'):
-            PATH = f'.venv/bin:{PATH}'
+        venv_path = os.path.abspath(os.path.expanduser('.venv/bin'))
+        if not PATH.startswith(f'{venv_path}:'):
+            PATH = f'{venv_path}:{PATH}'
+
+        # how to make it active for all future python commands?
+        self.update_github_env('PATH', PATH)
 
 
     def execute(self, matrix=None, checkout=None, debug=False):
@@ -360,6 +387,7 @@ class WorkflowJobStep:
                 cmd = t.render(matrix=matrix, github=self.github, secrets=self.secrets)
             except Exception as e:
                 print(e)
+                raise Exception (e)
                 import epdb; epdb.st()
         else:
             cmd = self._run
@@ -554,6 +582,8 @@ class AbstractExecutor:
     _job = None
     _checkout = None
     _debug = False
+    _pause = False
+    _temporary_checkout = False
 
     #_IMAGE = 'python:3'
     _IMAGE = 'ghacktion:3'
@@ -569,7 +599,7 @@ class AbstractExecutor:
     RUN test -f /usr/local/bin/docker || cp docker/docker /usr/local/bin/.
     '''
 
-    def __init__(self, backend='docker', repo=None, number=None, workspace=None, workflow=None, job=None, checkout=None, debug=False):
+    def __init__(self, backend='docker', repo=None, number=None, workspace=None, workflow=None, job=None, checkout=None, debug=False, pause=False):
 
         self._backend_method = backend
         self._repo = repo
@@ -579,6 +609,7 @@ class AbstractExecutor:
         self._checkout = checkout
         self._workspace = workspace
         self._debug = debug
+        self._pause = pause
 
         self.create_workspace()
         self.create_checkout()
@@ -634,7 +665,7 @@ class AbstractExecutor:
             return self._instance
 
         # what to do if local? ...
-        import epdb; epdb.st()
+        #import epdb; epdb.st()
 
     def create_workspace(self):
         '''We need a root dir to store all of the stuff'''
@@ -685,6 +716,7 @@ class AbstractExecutor:
             cmd = f'git clone https://github.com/{self._repo} {self._checkout}'
             pid = subprocess.run(cmd, shell=True)
             assert pid.returncode == 0
+            self._temporary_checkout = True
 
     def run(self, checkout=None):
 
@@ -694,16 +726,37 @@ class AbstractExecutor:
             workflow_files += glob.glob(f'{self._checkout}/.github/workflows/*.yaml')
             workflow_files = sorted(set(workflow_files))
             workflow_files = [x.replace(self._checkout + '/', '') for x in workflow_files]
-            workflow_files = [x for x in workflow_files if os.path.basename(x) == os.path.basename(self._workflow)]
-            workflows = [Workflow(os.path.join(self._checkout, x), workspace=self._workspace) for x in workflow_files]
+            selected_workflow_files = [
+                x for x in workflow_files if os.path.basename(x) == os.path.basename(self._workflow)
+            ]
+
+            if not selected_workflow_files:
+                print('ERROR: no matching workflows found')
+                print('valid names ...')
+                for x in workflow_files:
+                    print(f'\t{os.path.basename(x)}')
+                sys.exit(1)
+            workflows = [
+                Workflow(os.path.join(self._checkout, x), workspace=self._workspace) for x
+                in selected_workflow_files
+            ]
+
+            # ensure input jobname was correct
+            if self._job:
+                job_matches = [x for x in workflows for y in x.jobs if y.name == self._job]
+                if not job_matches:
+                    print('ERROR: no matching jobs found')
+                    print('valid names ...')
+                    for wf in workflows:
+                        for job in wf.jobs:
+                            print(f'\t{job.name}')
+                    sys.exit(1)
 
             # CLEAN UP THE INTERMEDIATE CHECKOUT?
-            #if self._checkout.endswith('.checkout'):
-            #    shutil.rmtree(self._checkout)
+            if self._temporary_checkout:
+                shutil.rmtree(self._checkout)
 
             for workflow in workflows:
-
-                # FIXME - should create new container for each workflow+job
 
                 #wfn = os.path.join(self._checkout, wf)
                 #print(wfn)
@@ -712,9 +765,11 @@ class AbstractExecutor:
                 for job in workflow.jobs:
                     if self._job and job.name != self._job:
                         continue
+                    print(f'RUN {job.name}')
                     #import epdb; epdb.st()
                     job.execute(debug=self._debug)
 
+            print('DONE')
             sys.exit(0)
 
         if self._backend_method == 'docker':
@@ -778,6 +833,7 @@ def main():
     run_parser.add_argument('--file')
     run_parser.add_argument('--job')
     run_parser.add_argument('--step')
+    run_parser.add_argument('--pause', action='store_true', help='pause after each step')
     run_parser.add_argument('--debug', action='store_true')
 
     args = parser.parse_args()
@@ -795,7 +851,7 @@ def main():
                 # copy the checkout to the tempdir
                 cbase = os.path.basename(args.repo)
                 dst = os.path.join(tdir, cbase)
-                import epdb; epdb.st()
+                #import epdb; epdb.st()
 
 
             else:
@@ -850,6 +906,7 @@ def main():
             job=args.job,
             checkout=args.checkout,
             debug=args.debug,
+            pause=args.pause
         ).run()
 
 

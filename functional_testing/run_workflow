@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import copy
 import os
 import shutil
@@ -290,6 +291,7 @@ class Workflow:
 
 
 def main():
+
     fn = sys.argv[1]
     wf = Workflow(fn)
     print(wf)

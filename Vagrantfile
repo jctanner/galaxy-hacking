@@ -48,7 +48,7 @@ Vagrant.configure("2") do |config|
      export DEBIAN_FRONTEND=noninteractive
      apt -y update
      apt -y upgrade
-     apt -y install git jq python3-pip docker.io libpq-dev
+     apt -y install git jq python3-pip docker.io libpq-dev python3-virtualenv
      if [ ! -L /usr/local/bin/python ]; then
        ln -s /usr/bin/python3 /usr/local/bin/python
      fi
