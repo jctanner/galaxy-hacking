@@ -584,6 +584,7 @@ class AbstractExecutor:
     _debug = False
     _pause = False
     _temporary_checkout = False
+    _noclean = False
 
     #_IMAGE = 'python:3'
     _IMAGE = 'ghacktion:3'
@@ -599,7 +600,7 @@ class AbstractExecutor:
     RUN test -f /usr/local/bin/docker || cp docker/docker /usr/local/bin/.
     '''
 
-    def __init__(self, backend='docker', repo=None, number=None, workspace=None, workflow=None, job=None, checkout=None, debug=False, pause=False):
+    def __init__(self, backend='docker', repo=None, number=None, workspace=None, workflow=None, job=None, checkout=None, debug=False, pause=False, noclean=False):
 
         self._backend_method = backend
         self._repo = repo
@@ -610,6 +611,7 @@ class AbstractExecutor:
         self._workspace = workspace
         self._debug = debug
         self._pause = pause
+        self._noclean = noclean
 
         self.create_workspace()
         self.create_checkout()
@@ -629,12 +631,12 @@ class AbstractExecutor:
             )
 
     def __del__(self):
-        if not self._debug:
+        if not self._noclean:
             if self._backend_method == 'docker' and self._instance:
                 print('STOP DOCKER')
                 self._instance.stop()
 
-        if not self._debug:
+        if not self._noclean:
             if self._workspace and os.path.exists(self._workspace):
                 try:
                     shutil.rmtree(self._workspace)
@@ -753,7 +755,7 @@ class AbstractExecutor:
                     sys.exit(1)
 
             # CLEAN UP THE INTERMEDIATE CHECKOUT?
-            if self._temporary_checkout:
+            if self._temporary_checkout and not self._noclean:
                 shutil.rmtree(self._checkout)
 
             for workflow in workflows:
@@ -820,7 +822,7 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--repo', help='<user>/<repo>')
-    parser.add_argument('--number', help='pr number')
+    parser.add_argument('--number', help='pr number [-1 == HEAD]')
     parser.add_argument('--local', action='store_true', help='run locally')
     parser.add_argument('--checkout', help='path to a local checkout')
 
@@ -835,6 +837,7 @@ def main():
     run_parser.add_argument('--step')
     run_parser.add_argument('--pause', action='store_true', help='pause after each step')
     run_parser.add_argument('--debug', action='store_true')
+    run_parser.add_argument('--noclean', action='store_true')
 
     args = parser.parse_args()
 
@@ -906,7 +909,8 @@ def main():
             job=args.job,
             checkout=args.checkout,
             debug=args.debug,
-            pause=args.pause
+            pause=args.pause,
+            noclean=args.noclean
         ).run()
 
 
