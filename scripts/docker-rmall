@@ -1,0 +1,9 @@
+#!/bin/bash -x
+
+for IMAGEID in $(docker images -a | awk '{print $3}' | fgrep -v IMAGE); do
+    echo "Removing ${IMAGEID} ..."
+    docker rmi -f ${IMAGEID}
+done
+
+echo "Pruning volumes ..."
+docker volume prune -f
