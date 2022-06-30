@@ -106,11 +106,11 @@ class WorkflowJobStep:
         # .github/workflows/scripts/install.sh:ansible-playbook build_container.yaml
         # .github/workflows/scripts/install.sh:ansible-playbook start_container.yaml
         subprocess.run(
-            "sed -i.bak 's|ansible-playbook build|ansible-playbook -v build|' .github/workflows/scripts/install.sh",
+            "sed -i.bak 's|ansible-playbook build|ansible-playbook -v build|g' .github/workflows/scripts/install.sh",
             shell=True
         )
         subprocess.run(
-            "sed -i.bak 's|ansible-playbook build|ansible-playbook -v start|' .github/workflows/scripts/install.sh",
+            "sed -i.bak 's|ansible-playbook build|ansible-playbook -v start|g' .github/workflows/scripts/install.sh",
             shell=True
         )
 
