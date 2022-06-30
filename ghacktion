@@ -531,6 +531,7 @@ class WorkflowJob:
 
             for matrix in self._matrix:
 
+                # skip the docs,azure,s3,stream tests
                 if matrix['env']['TEST'] != 'pulp':
                     continue
 
