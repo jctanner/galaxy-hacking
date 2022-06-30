@@ -110,7 +110,7 @@ class WorkflowJobStep:
             shell=True
         )
         subprocess.run(
-            "sed -i.bak 's|ansible-playbook build|ansible-playbook -v start|g' .github/workflows/scripts/install.sh",
+            "sed -i.bak 's|ansible-playbook start|ansible-playbook -v start|g' .github/workflows/scripts/install.sh",
             shell=True
         )
 
