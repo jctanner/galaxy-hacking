@@ -217,6 +217,22 @@ class WorkflowJobStep:
 
         env = self.get_github_env()
         repo = env['GITHUB_REPOSITORY']
+
+        # We don't want to do anything in this step if it's being
+        # run from a local checkout.
+        if str(repo) == 'None':
+            self.update_github_env('GITHUB_PR_JSON', json.dumps({
+                'user': '',
+                'commits_url': '',
+            }))
+            self.update_github_env('GITHUB_SHA', '')
+            self.update_github_env('GITHUB_BASE_REF', '')
+            self.update_github_env('GITHUB_BASE_SHA', '')
+            self.update_github_env('GITHUB_HEAD_REF', '')
+            self.update_github_env('GITHUB_HEAD_SHA', '')
+            self.update_github_env('GITHUB_PR_COMMITS_URL', '')
+            return
+
         repositoryurl = f'https://github.com/{repo}'
 
         # https://api.github.com/repos/jctanner/actions-testing/pulls/4
@@ -613,6 +629,10 @@ class AbstractExecutor:
         self._pause = pause
         self._noclean = noclean
 
+        self.GITHUB_REPOSITORY_OWNER = None
+        if self._repo:
+            self.GITHUB_REPOSITORY_OWNER = os.path.dirname(self._repo)
+
         self.create_workspace()
         self.create_checkout()
 
@@ -674,7 +694,14 @@ class AbstractExecutor:
 
         if self._workspace is None:
             tdir = tempfile.mkdtemp(prefix='ghacktion-')
-            self._workspace = os.path.join(tdir, self._repo)
+            if not self._repo and self._checkout:
+                co_abs = os.path.abspath(self._checkout)
+                co_bp = os.path.basename(self._checkout)
+                self._workspace = os.path.join(tdir, co_bp)
+                pid = subprocess.run(f'ln -s {co_abs} {co_bp}', cwd=tdir, shell=True)
+                assert pid.returncode == 0
+            else:
+                self._workspace = os.path.join(tdir, self._repo)
             if not os.path.exists(self._workspace):
                 os.makedirs(self._workspace)
 
@@ -694,7 +721,7 @@ class AbstractExecutor:
                 'GITHUB_WORKSPACE': self._workspace,
                 'GITHUB_WORKFLOW': 'CI', #FIXME
                 'GITHUB_REPOSITORY': self._repo,
-                'GITHUB_REPOSITORY_OWNER': os.path.dirname(self._repo)
+                'GITHUB_REPOSITORY_OWNER': self.GITHUB_REPOSITORY_OWNER
             }
             fn = os.path.join(self._workspace, '.github_env')
             with open(fn, 'w') as f:
@@ -707,8 +734,8 @@ class AbstractExecutor:
     def create_checkout(self):
         '''We need the checkout to be inside the workspace'''
         if self._backend_method == 'local' and self._checkout:
-            dst = os.path.join(self.workspace, os.path.basename(self._checkout))
-            if self._checkout != dst:
+            dst = os.path.join(self._workspace, os.path.basename(self._checkout))
+            if self._checkout != dst and not os.path.exists(dst):
                 shutil.copytree(self._checkout, dst)
 
         elif self._backend_method in ['local', 'docker'] and not self._checkout:
