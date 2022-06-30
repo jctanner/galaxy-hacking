@@ -7,6 +7,8 @@ source .venv/bin/activate
 
 export PYTHONPATH=$PULP_ANSIBLE_DIR:$PULP_ANSIBLE_DIR/../galaxy-importer 
 
+.venv/bin/pip install epdb
+
 .venv/bin/pytest \
     --capture=no \
     -v \
@@ -14,4 +16,4 @@ export PYTHONPATH=$PULP_ANSIBLE_DIR:$PULP_ANSIBLE_DIR/../galaxy-importer
     --color=yes \
     --pyargs pulp_ansible.tests.functional \
     -m "not parallel" \
-    -k test_install_role
+    -k test_import_role
