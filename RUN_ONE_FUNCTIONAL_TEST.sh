@@ -7,7 +7,7 @@ source .venv/bin/activate
 
 export PYTHONPATH=$PULP_ANSIBLE_DIR:$PULP_ANSIBLE_DIR/../galaxy-importer 
 
-.venv/bin/pip install epdb
+.venv/bin/pip install epdb orionutils
 
 .venv/bin/pytest \
     --capture=no \
