@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
 
+############################################################################
+# 
+# ghacktion - simulate github actions
+#
+#   EXAMPLE:
+#       ./ghacktion --repo=jctanner/actions-testing --number=4 list
+#       ./ghacktion --repo=jctanner/actions-testing --number=4 run \
+#           --local --file=blank.yml --job=build
+#
+#   A directory structure will get laid out on disk like so ...
+#       /tmp/ghacktion-XXXX/<user>/<repo>.checkout
+#       /tmp/ghacktion-XXXX/<user>/<repo>
+#
+############################################################################
+
 import argparse
 import copy
 import glob
@@ -123,10 +138,17 @@ class WorkflowJobStep:
         )
         '''
 
+    def _alter_pytest(self):
+        subprocess.run(
+            "sed -i.bak 's|pytest -v|pytest --capture=no -v|g' .github/workflows/scripts/script.sh",
+            shell=True
+        )
+
     def before(self):
         self._clean_intermediate_checkouts()
         self._fix_cryptography()
         self._ffwd_pulp_ci()
+        #self._alter_pytest()
 
     def after(self):
         self._fix_cryptography()
@@ -282,7 +304,7 @@ class WorkflowJobStep:
         assert pid.returncode == 0
 
         # need some packages?
-        for pkg in ['pytest']:
+        for pkg in ['pytest', 'epdb']:
             subprocess.run(f'.venv/bin/pip install {pkg}', shell=True)
 
         '''
@@ -617,7 +639,19 @@ class AbstractExecutor:
     RUN test -f /usr/local/bin/docker || cp docker/docker /usr/local/bin/.
     '''
 
-    def __init__(self, backend='docker', repo=None, number=None, workspace=None, workflow=None, job=None, checkout=None, debug=False, pause=False, noclean=False):
+    def __init__(
+        self,
+        backend='docker',
+        repo=None,
+        number=None,
+        workspace=None,
+        workflow=None,
+        job=None,
+        checkout=None,
+        debug=False,
+        pause=False,
+        noclean=False
+    ):
 
         self._backend_method = backend
         self._repo = repo
@@ -633,6 +667,9 @@ class AbstractExecutor:
         self.GITHUB_REPOSITORY_OWNER = None
         if self._repo:
             self.GITHUB_REPOSITORY_OWNER = os.path.dirname(self._repo)
+        else:
+            self.GITHUB_REPOSITORY_OWNER = \
+                self.get_github_checkout_repo_user(self._checkout)
 
         self.create_workspace()
         self.create_checkout()
@@ -650,6 +687,18 @@ class AbstractExecutor:
                     f'{self._workspace}:/workspace:rw'
                 ]
             )
+
+    def get_github_checkout_repo_user(self, checkout):
+        pid = subprocess.run(
+            "git remote -v | egrep -m1 ^origin | awk '{print $2}'",
+            shell=True,
+            cwd=checkout,
+            stdout=subprocess.PIPE
+        )
+        ds = pid.stdout.decode('utf-8').strip()
+        ds = ds.replace('git@github.com:', '')
+        ds = ds.replace('https://github.com/', '')
+        return ds.split('/')[0]
 
     def __del__(self):
         if not self._noclean:
@@ -698,8 +747,15 @@ class AbstractExecutor:
             if not self._repo and self._checkout:
                 co_abs = os.path.abspath(self._checkout)
                 co_bp = os.path.basename(self._checkout)
-                self._workspace = os.path.join(tdir, co_bp)
-                pid = subprocess.run(f'ln -s {co_abs} {co_bp}', cwd=tdir, shell=True)
+                self._workspace = os.path.join(
+                    tdir,
+                    self.GITHUB_REPOSITORY_OWNER,
+                    co_bp
+                )
+                topdir = os.path.dirname(self._workspace)
+                if not os.path.exists(topdir):
+                    os.makedirs(topdir)
+                pid = subprocess.run(f'ln -s {co_abs} {co_bp}', cwd=topdir, shell=True)
                 assert pid.returncode == 0
             else:
                 self._workspace = os.path.join(tdir, self._repo)
@@ -742,7 +798,11 @@ class AbstractExecutor:
         elif self._backend_method in ['local', 'docker'] and not self._checkout:
 
             # make a checkout for FILE PARSING ONLY!!!????!!!!???
-            self._checkout = os.path.join(self._workspace, os.path.basename(self._repo) + '.checkout')
+            #self._checkout = os.path.join(self._workspace, os.path.basename(self._repo) + '.checkout')
+            self._checkout = os.path.join(
+                os.path.dirname(self._workspace),
+                os.path.basename(self._repo) + '.checkout'
+            )
             cmd = f'git clone https://github.com/{self._repo} {self._checkout}'
             pid = subprocess.run(cmd, shell=True)
             assert pid.returncode == 0
