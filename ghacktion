@@ -6,8 +6,8 @@
 #
 #   EXAMPLE:
 #       ./ghacktion --repo=jctanner/actions-testing --number=4 list
-#       ./ghacktion --repo=jctanner/actions-testing --number=4 run \
-#           --local --file=blank.yml --job=build
+#       ./ghacktion --repo=jctanner/actions-testing --number=4 --local run \
+#           --file=blank.yml --job=build
 #
 #   A directory structure will get laid out on disk like so ...
 #       /tmp/ghacktion-XXXX/<user>/<repo>.checkout
@@ -83,6 +83,9 @@ class WorkflowJobStep:
         return self._name or self._uses
 
     def parse(self):
+        """
+        Set attrs from the data structure.
+        """
         if 'name' in self._ds:
             self._name = self._ds['name']
         if 'env' in self._ds:
@@ -93,8 +96,13 @@ class WorkflowJobStep:
             self._uses = self._ds['uses']
 
     def _fix_cryptography(self):
-        '''pulp + pulpsmash requirements are fubared'''
+        """
+        Fix pulp + pulpsmash (fubared) requirements.
+        """
+
+        # disabled for now?
         return
+
         cmd = "pip show cryptography | egrep ^Version | cut -d\: -f2 | tr -d ' '"
         pid = subprocess.run(
             cmd,
@@ -111,12 +119,19 @@ class WorkflowJobStep:
             subprocess.run(cmd, shell=True)
 
     def _clean_intermediate_checkouts(self):
+        """
+        Cleanup all checkouts.
+        """
         candidates = glob.glob('*.checkout')
         if candidates:
             for candidate in candidates:
                 shutil.rmtree(candidate)
 
     def _ffwd_pulp_ci(self):
+        """
+        Enhance the pulp CI playbooks.
+        """
+
         # ansible-playbook -v
         # .github/workflows/scripts/install.sh:ansible-playbook build_container.yaml
         # .github/workflows/scripts/install.sh:ansible-playbook start_container.yaml
@@ -138,22 +153,57 @@ class WorkflowJobStep:
         )
         '''
 
+        # temporary workaround for permission issues
+        fn = '.ci/ansible/Containerfile.j2'
+        if os.path.exists(fn):
+            newline = 'RUN chmod -R 777 /etc/pulp /var/log /var/lib/pulp'
+            with open(fn, 'r') as f:
+                fdata = f.read()
+            flines = fdata.split('\n')
+            if newline not in flines:
+                entrypoint = [x for x in flines if x.startswith('ENTRYPOINT')][0]
+                flines = [x for x in flines if x != entrypoint]
+                flines.append(newline)
+                flines.append(entrypoint)
+                with open(fn, 'w') as f:
+                    f.write('\n'.join(flines))
+
+        # use an older pulpci image tag?
+        # BAD
+        #   https://github.com/pulp/pulp-oci-images/pkgs/container/pulp-ci-centos/43695358?tag=https
+        #   ghcr.io/pulp/pulp-ci-centos:https
+
+
     def _alter_pytest(self):
+        """
+        Add debuggable kwargs to pytest.
+        """
         subprocess.run(
             "sed -i.bak 's|pytest -v|pytest --capture=no -v|g' .github/workflows/scripts/script.sh",
             shell=True
         )
 
     def before(self):
+        """
+        Kinda like unittest class before.
+        Runs before each step.
+        """
         self._clean_intermediate_checkouts()
         self._fix_cryptography()
         self._ffwd_pulp_ci()
         #self._alter_pytest()
 
     def after(self):
+        """
+        Kinda like unittest class after.
+        Runs after each step.
+        """
         self._fix_cryptography()
 
     def get_github_env(self):
+        """
+        Read the env from the saved file.
+        """
         fname = '.github_env'
         env = {}
         if os.path.exists(fname):
@@ -169,6 +219,9 @@ class WorkflowJobStep:
         return env
 
     def update_github_env(self, newkey, newval):
+        """
+        Create or update a new env var in the stored file.
+        """
         fname = '.github_env'
         env = {}
         if os.path.exists(fname):
@@ -189,6 +242,10 @@ class WorkflowJobStep:
 
     @property
     def secrets(self):
+        """
+        Return github secrets.
+        """
+        # We don't want to give any secrets in this setup.
         return {
             'GITHUB_TOKEN': ''
         }
@@ -421,8 +478,18 @@ class WorkflowJobStep:
             cmd = self._run
             cmd_t = cmd.replace('${{', '{{')
             t = Template(cmd_t)
+            tkwargs = {
+                'matrix': matrix,
+                'github': self.github,
+                'secrets': self.secrets
+            }
+
+            # these keys need to move to the top level if given
+            if 'include' in matrix:
+                tkwargs['matrix'] = matrix['include']
+
             try:
-                cmd = t.render(matrix=matrix, github=self.github, secrets=self.secrets)
+                cmd = t.render(**tkwargs)
             except Exception as e:
                 print(e)
                 raise Exception (e)
@@ -436,10 +503,10 @@ class WorkflowJobStep:
         #pid = subprocess.run(cmd, shell=True, env=env)
 
         if pid.returncode != 0:
-            print('==> STEP FAILED')
+            print(f'==> STEP FAILED: {self.name}')
             if debug:
                 import epdb; epdb.st()
-            raise Exception('STEP FAILED')
+            raise Exception(f'STEP FAILED: {self.name}')
 
         assert pid.returncode == 0
 
@@ -483,6 +550,17 @@ class WorkflowJob:
                         val = list(item.values())[0]
                         m = {'env': dict([(key, val)])}
                         matrix.append(m)
+
+                elif 'include' in bits:
+                    for ds in bits['include']:
+                        # this is a dict of vars for templating
+                        #import epdb; epdb.st()
+                        #key = list(item.keys())[0]
+                        #val = list(item.values())[0]
+                        #m = {'env': dict([(key, val)])}
+                        m = {'include': ds}
+                        matrix.append(m)
+
                 self._matrix = matrix
 
     @property
@@ -554,7 +632,7 @@ class WorkflowJob:
             for matrix in self._matrix:
 
                 # skip the docs,azure,s3,stream tests
-                if matrix['env']['TEST'] != 'pulp':
+                if 'env' in matrix and matrix['env']['TEST'] != 'pulp':
                     continue
 
                 self.clean()
@@ -811,6 +889,11 @@ class AbstractExecutor:
     def run(self, checkout=None):
 
         if self._backend_method == 'local':
+
+            # cd into the checkout
+            if not self._temporary_checkout and checkout is None and self._checkout:
+                os.chdir(self._checkout)
+
             # load from the checkout
             workflow_files = glob.glob(f'{self._checkout}/.github/workflows/*.yml')
             workflow_files += glob.glob(f'{self._checkout}/.github/workflows/*.yaml')
@@ -936,14 +1019,8 @@ def main():
             checkout = None
 
             if args.checkout:
-
                 # work from the local checkout ... 
-
-                # copy the checkout to the tempdir
-                cbase = os.path.basename(args.repo)
-                dst = os.path.join(tdir, cbase)
-                #import epdb; epdb.st()
-
+                checkout = args.checkout
 
             else:
 
