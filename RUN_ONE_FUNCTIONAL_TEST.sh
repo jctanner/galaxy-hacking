@@ -1,11 +1,14 @@
 #!/bin/bash -x
 
 WORKDIR=/tmp/$(ls -t /tmp | fgrep ghacktion | head -n1)
-PULP_ANSIBLE_DIR=$WORKDIR/pulp/pulp_ansible
-cd $PULP_ANSIBLE_DIR
-source .venv/bin/activate
+PULP_ANSIBLE_DIR=$WORKDIR/jctanner/pulp_ansible
+#cd $PULP_ANSIBLE_DIR
 
-export PYTHONPATH=$PULP_ANSIBLE_DIR:$PULP_ANSIBLE_DIR/../galaxy-importer 
+cd src/pulp_ansible
+source .venv/bin/activate
+source .github_env
+
+export PYTHONPATH=.:$(pwd)/../galaxy-importer 
 
 .venv/bin/pip install epdb orionutils
 

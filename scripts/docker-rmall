@@ -1,6 +1,7 @@
 #!/bin/bash -x
 
-for IMAGEID in $(docker images -a | awk '{print $3}' | fgrep -v IMAGE); do
+
+for IMAGEID in $(docker images -a --digests | fgrep -v sha256 | awk '{print $4}' | fgrep -v IMAGE); do
     echo "Removing ${IMAGEID} ..."
     docker rmi -f ${IMAGEID}
 done

@@ -47,17 +47,8 @@ fi
 /vagrant/docker-rmall
 
 cd $SRC/galaxy_ng
-if [[ $VERSION == "4.2" ]]; then
+make docker/all
 
-    # centos is dead ...
-    sed -i.bak 's|centos:8|registry.access.redhat.com/ubi8|g' $SRC/galaxy_ng/Dockerfile
-    sed -i.bak 's|centos:8|registry.access.redhat.com/ubi8|g' $SRC/galaxy_ng/dev/Dockerfile.base
-
-   ./compose build
-   ./compose up -d postgres redis
-   ./compose run --rm api manage migrate
-   ./compose run --rm -e PULP_FIXTURE_DIRS='["/src/galaxy_ng/dev/automation-hub"]' api manage loaddata initial_data.json
-else
-    make docker/all
+if [[ $VERSION != "4.2" ]]; then
     make docker/loadtoken
 fi
