@@ -1,2 +1,10 @@
+*.pyc
+*.pyo
 venv
 .vagrant
+src
+dev
+artifacts
+ah-dump.xz
+*.swp
+
