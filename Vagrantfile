@@ -41,7 +41,7 @@ Vagrant.configure("2") do |config|
 
   config.vm.provider :libvirt do |libvirt|
     libvirt.cpus = 2
-    libvirt.memory = 4000
+    libvirt.memory = 8000
   end
 
   config.vm.provision "shell", inline: <<-SHELL
@@ -49,6 +49,8 @@ Vagrant.configure("2") do |config|
      apt -y update
      apt -y upgrade
      apt -y install git jq python3-pip docker.io libpq-dev python3-virtualenv
+
+     # there should be a package for this right?
      if [ ! -L /usr/local/bin/python ]; then
        ln -s /usr/bin/python3 /usr/local/bin/python
      fi
@@ -57,6 +59,7 @@ Vagrant.configure("2") do |config|
      ansible-galaxy role install geerlingguy.docker
      cd /vagrant && ansible-playbook -i 'localhost,' docker.yml
 
+     # pulp workarounds?
      mkdir -p /var/lib/gems
      chown -R vagrant:vagrant /var/lib/gems
 

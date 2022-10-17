@@ -7,4 +7,4 @@ dev
 artifacts
 ah-dump.xz
 *.swp
-
+*.sqlite
