@@ -47,19 +47,10 @@ func hash(s string) string {
 }
 
 
-func get_upstream_url(url_path string, query_params url.Values) GalaxyResponse {
-
-	//msg := fmt.Sprintf("\nGET PATH %s\n", url_path)
-	//fmt.Print(msg)
-	//msg2 := fmt.Sprintf("\nGET PARAMS %s\n", query_params)
-	//fmt.Print(msg2)
-
-    upstream_url := upstream_baseurl + url_path
-
+func join_params(query_params url.Values) string {
     param_string := ""
     cnt := 0 
     for key, val := range query_params {
-
         if len(query_params) == 0 {
             param_string += string(key) + "=" + val[0]
         } else if cnt == 0 {
@@ -69,6 +60,14 @@ func get_upstream_url(url_path string, query_params url.Values) GalaxyResponse {
         }
         cnt++
     }
+    return param_string
+}
+
+func get_upstream_url(url_path string, query_params url.Values) GalaxyResponse {
+
+    // assemble the url
+    upstream_url := upstream_baseurl + url_path
+    param_string := join_params(query_params)
     if len(param_string) > 0 {
         upstream_url += "?" + param_string
     }
@@ -81,12 +80,12 @@ func get_upstream_url(url_path string, query_params url.Values) GalaxyResponse {
     fdir := ".cache/" + fprefix
     fname := fdir + "/" + fhash + ".json"
 
-    // make directory if not exists ...
+    // make cache directory if not exists ...
     if _, err := os.ReadDir(fdir); err != nil {
         os.MkdirAll(fdir, 0755)
     }
 
-    // use file if exists ...
+    // use cache file if exists ...
     if _, err := os.Stat(fname); err == nil {
         fmt.Println("CACHE HIT " + upstream_url + " > " + fname)
         jsonFile, _ := os.Open(fname)
@@ -99,9 +98,11 @@ func get_upstream_url(url_path string, query_params url.Values) GalaxyResponse {
 
     // fetch the data ...
     fmt.Println("CACHE MISS " + upstream_url + " > " + fname)
+    t1 := time.Now()
     uresp, _ := http.Get(upstream_url)
-    //fmt.Println(uresp)
-    //fmt.Println(err)
+    t2 := time.Now()
+    diff := t2.Sub(t1)
+    fmt.Println(diff)
 
     // munge the body and headers
     body, _ := ioutil.ReadAll(uresp.Body)
