@@ -75,9 +75,16 @@ func get_upstream_url(url_path string, query_params url.Values) GalaxyResponse {
 
     // make a hash of this url ...
     fhash := hash(upstream_url)
+    fprefix := fhash[0:3]
 
     // define the cache filename ...
-    fname := ".cache/" + fhash + ".json"
+    fdir := ".cache/" + fprefix
+    fname := fdir + "/" + fhash + ".json"
+
+    // make directory if not exists ...
+    if _, err := os.ReadDir(fdir); err != nil {
+        os.MkdirAll(fdir, 0755)
+    }
 
     // use file if exists ...
     if _, err := os.Stat(fname); err == nil {
