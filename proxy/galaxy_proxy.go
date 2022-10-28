@@ -41,9 +41,9 @@ type GalaxyResponse struct {
 
 
 func hash(s string) string {
-        h := fnv.New32a()
-        h.Write([]byte(s))
-        return fmt.Sprint(h.Sum32())
+    h := fnv.New32a()
+    h.Write([]byte(s))
+    return fmt.Sprint(h.Sum32())
 }
 
 
