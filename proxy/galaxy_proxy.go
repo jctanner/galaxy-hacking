@@ -4,10 +4,13 @@ import (
 	//"archive/tar"
 	//"compress/gzip"
 	//"crypto/sha256"
+    "crypto/sha256"
+    //"encoding/base64"
+    "encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
-    "hash/fnv"
+    //"hash/fnv"
 	//"io"
 	"io/ioutil"
 	//"log"
@@ -40,10 +43,20 @@ type GalaxyResponse struct {
 }
 
 
+/*
 func hash(s string) string {
     h := fnv.New32a()
     h.Write([]byte(s))
     return fmt.Sprint(h.Sum32())
+}
+*/
+
+func hash(s string) string{
+    hasher := sha256.New()
+    hasher.Write([]byte(s))
+    //sha := base64.URLEncoding.EncodeToString(hasher.Sum(nil))
+    sha := hex.EncodeToString(hasher.Sum(nil))
+	return string(sha)
 }
 
 
