@@ -23,6 +23,9 @@ def paginate(next_url):
 def main():
 
     base_url = 'http://localhost:8080'
+
+    roles = []
+
     next_url = base_url + '/api/v1/roles'
     while next_url:
         print(next_url)
@@ -36,14 +39,15 @@ def main():
         if not ds.get('next_link'):
             break
         next_url = base_url + ds['next_link']
+        roles.extend(ds['results'])
 
-        # iterate each role ...
-        for role in ds['results']:
-            role_url = base_url + role['url']
-            print(role_url)
-            rr2 = requests.get(role_url)
-            ds2 = rr2.json()
-            paginate(base_url + role['url'] + 'versions/')
+    # iterate each role ...
+    for idr,role in enumerate(roles):
+        role_url = base_url + role['url']
+        print(f'{len(roles)}|{idr} {role_url}')
+        rr2 = requests.get(role_url)
+        ds2 = rr2.json()
+        paginate(base_url + role['url'] + 'versions/')
 
     import epdb; epdb.st()
 
