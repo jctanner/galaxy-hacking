@@ -9,6 +9,7 @@ perfmap = {}
 
 def paginate(next_url):
     base_url = 'http://localhost:8080'
+    to_fetch = []
     while next_url:
         print(next_url)
         t1 = datetime.datetime.now()
@@ -24,13 +25,45 @@ def paginate(next_url):
             continue
 
         ds = rr.json()
+        if ds.get('results'):
+            for result in ds['results']:
+                if isinstance(result, dict) and result.get('href'):
+                    to_fetch.append(base_url + result['href'])
+
         if not ds.get('next_link'):
             break
         next_url = base_url + ds['next_link']
 
+    if to_fetch:
+        for tf in to_fetch:
+            print(tf)
+            rr = requests.get(tf)
+        #import epdb; epdb.st()
 
-def main():
 
+def crawl_collections():
+    base_url = 'http://localhost:8080'
+    next_url = base_url + '/api/v2/collections/'
+
+    collections = []
+    while next_url:
+        print(next_url)
+        rr = requests.get(next_url)
+        ds = rr.json()
+        collections.extend(ds['results'])
+        if ds.get('next_link') is None:
+            break
+        next_url = base_url + ds['next_link']
+
+    for collection in collections:
+        href = base_url + collection['href']
+        print(href)
+        rr1 = requests.get(href)
+        paginate(base_url + collection['versions_url'])
+        #import epdb; epdb.st()
+
+
+def crawl_roles():
     base_url = 'http://localhost:8080'
 
     roles = []
@@ -70,6 +103,11 @@ def main():
         ds2 = rr2.json()
         paginate(base_url + role['url'] + 'versions/')
 
+
+def main():
+
+    #crawl_roles()
+    crawl_collections()
     import epdb; epdb.st()
 
 

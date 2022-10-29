@@ -8,6 +8,7 @@ import (
     "fmt"
     "io/ioutil"
     "os"
+    "strings"
     "time"
     "net/url"
     "net/http"
@@ -55,6 +56,7 @@ func join_params(query_params url.Values) string {
     return param_string
 }
 
+
 func get_upstream_url(url_path string, query_params url.Values) GalaxyResponse {
 
     /*****************************************************
@@ -89,6 +91,11 @@ func get_upstream_url(url_path string, query_params url.Values) GalaxyResponse {
         var resp GalaxyResponse
         json.Unmarshal(byteValue, &resp)
         jsonFile.Close()
+
+        // fix urls ...
+        newbody := strings.Replace(resp.Body, "https://galaxy.ansible.com", "", -1)
+        resp.Body = newbody
+
         return resp
     }
 
@@ -102,7 +109,8 @@ func get_upstream_url(url_path string, query_params url.Values) GalaxyResponse {
 
     // munge the body and headers
     body, _ := ioutil.ReadAll(uresp.Body)
-    sb := string(body)
+    sb1 := string(body)
+    sb := strings.Replace(sb1, "https://galaxy.ansible.com", "", -1)
     jsonStr, _ := json.Marshal(uresp.Header)
     sj := string(jsonStr)
 
@@ -172,23 +180,25 @@ func main() {
     r.RedirectTrailingSlash = true
     r.Use(location.Default())
 
-    // api root
+    // root
     r.GET("/api/", galaxy_proxy.Api)
 
     // v1
     r.GET("/api/v1/users/", galaxy_proxy.UpstreamHandler)
+    r.GET("/api/v1/users/:userid/", galaxy_proxy.UpstreamHandler)
     r.GET("/api/v1/namespaces/", galaxy_proxy.UpstreamHandler)
+    r.GET("/api/v1/namespaces/:namespaceid/", galaxy_proxy.UpstreamHandler)
+    r.GET("/api/v1/namespaces/:namespaceid/content/", galaxy_proxy.UpstreamHandler)
+    r.GET("/api/v1/namespaces/:namespaceid/owners/", galaxy_proxy.UpstreamHandler)
     r.GET("/api/v1/roles/", galaxy_proxy.UpstreamHandler)
     r.GET("/api/v1/roles/:roleid/", galaxy_proxy.UpstreamHandler)
     r.GET("/api/v1/roles/:roleid/versions/", galaxy_proxy.UpstreamHandler)
 
-    /*
-    r.GET("/api/", amanda.Api)
-    r.GET("/api/v2/collections/", amanda.Collections)
-    r.GET("/api/v2/collections/:namespace/:name/", amanda.Collection)
-    r.GET("/api/v2/collections/:namespace/:name/versions/", amanda.Versions)
-    r.GET("/api/v2/collections/:namespace/:name/versions/:version/", amanda.Version)
-    */
+    // v2
+    r.GET("/api/v2/collections/", galaxy_proxy.UpstreamHandler)
+    r.GET("/api/v2/collections/:namespace/:name/", galaxy_proxy.UpstreamHandler)
+    r.GET("/api/v2/collections/:namespace/:name/versions/", galaxy_proxy.UpstreamHandler)
+    r.GET("/api/v2/collections/:namespace/:name/versions/:version/", galaxy_proxy.UpstreamHandler)
 
     //r.Static("/artifacts", amanda.Artifacts)
     r.Run(":" + port)
