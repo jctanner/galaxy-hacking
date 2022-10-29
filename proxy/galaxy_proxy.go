@@ -1,32 +1,18 @@
 package main
 
 import (
-	//"archive/tar"
-	//"compress/gzip"
-	//"crypto/sha256"
     "crypto/sha256"
-    //"encoding/base64"
     "encoding/hex"
-	"encoding/json"
-	"flag"
-	"fmt"
-    //"hash/fnv"
-	//"io"
-	"io/ioutil"
-	//"log"
-	"os"
-	//"path/filepath"
-    //"reflect"
-	//"sort"
-    //"strconv"
-	//"strings"
-	"time"
-	"net/url"
+    "encoding/json"
+    "flag"
+    "fmt"
+    "io/ioutil"
+    "os"
+    "time"
+    "net/url"
     "net/http"
-
-	//"github.com/Masterminds/semver/v3"
-	"github.com/gin-contrib/location"
-	"github.com/gin-gonic/gin"
+    "github.com/gin-contrib/location"
+    "github.com/gin-gonic/gin"
 )
 
 
@@ -43,24 +29,17 @@ type GalaxyResponse struct {
 }
 
 
-/*
-func hash(s string) string {
-    h := fnv.New32a()
-    h.Write([]byte(s))
-    return fmt.Sprint(h.Sum32())
-}
-*/
-
 func hash(s string) string{
+    // make a hexified sha56sum from a string
     hasher := sha256.New()
     hasher.Write([]byte(s))
-    //sha := base64.URLEncoding.EncodeToString(hasher.Sum(nil))
     sha := hex.EncodeToString(hasher.Sum(nil))
 	return string(sha)
 }
 
 
 func join_params(query_params url.Values) string {
+    // naive string join for a query parameters map
     param_string := ""
     cnt := 0 
     for key, val := range query_params {
@@ -77,6 +56,10 @@ func join_params(query_params url.Values) string {
 }
 
 func get_upstream_url(url_path string, query_params url.Values) GalaxyResponse {
+
+    /*****************************************************
+     *  Get a request from cache or forward to upstream 
+     ****************************************************/
 
     // assemble the url
     upstream_url := upstream_baseurl + url_path
@@ -154,9 +137,13 @@ func (g *GalaxyProxy) Api(c *gin.Context) {
 }
 
 
-func (g *GalaxyProxy) Roles(c *gin.Context) {
+func (g *GalaxyProxy) UpstreamHandler(c *gin.Context) {
 
-    // get the usptream response ...
+    /*************************************
+     * Handle api/v1/roles/*
+     ************************************/
+
+    // get the upstream response ...
 	url_path := c.Request.URL.Path
 	uresp := get_upstream_url(url_path, c.Request.URL.Query())
 
@@ -173,39 +160,36 @@ func (g *GalaxyProxy) Roles(c *gin.Context) {
 
 
 func main() {
-	var artifacts string
-	var port string
-	//var err error
-	galaxy_proxy := GalaxyProxy{}
+    var artifacts string
+    var port string
+    galaxy_proxy := GalaxyProxy{}
 
-	flag.StringVar(&artifacts, "artifacts", "artifacts", "Location of the artifacts dir")
-	flag.StringVar(&port, "port", "8080", "Port")
-	flag.Parse()
+    flag.StringVar(&artifacts, "artifacts", "artifacts", "Location of the artifacts dir")
+    flag.StringVar(&port, "port", "8080", "Port")
+    flag.Parse()
+
+    r := gin.Default()
+    r.RedirectTrailingSlash = true
+    r.Use(location.Default())
+
+    // api root
+    r.GET("/api/", galaxy_proxy.Api)
+
+    // v1
+    r.GET("/api/v1/users/", galaxy_proxy.UpstreamHandler)
+    r.GET("/api/v1/namespaces/", galaxy_proxy.UpstreamHandler)
+    r.GET("/api/v1/roles/", galaxy_proxy.UpstreamHandler)
+    r.GET("/api/v1/roles/:roleid/", galaxy_proxy.UpstreamHandler)
+    r.GET("/api/v1/roles/:roleid/versions/", galaxy_proxy.UpstreamHandler)
 
     /*
-	amanda.Artifacts, err = filepath.Abs(artifacts)
-	if err != nil {
-		log.Fatal(err)
-	}
+    r.GET("/api/", amanda.Api)
+    r.GET("/api/v2/collections/", amanda.Collections)
+    r.GET("/api/v2/collections/:namespace/:name/", amanda.Collection)
+    r.GET("/api/v2/collections/:namespace/:name/versions/", amanda.Versions)
+    r.GET("/api/v2/collections/:namespace/:name/versions/:version/", amanda.Version)
     */
 
-	r := gin.Default()
-	r.RedirectTrailingSlash = true
-	r.Use(location.Default())
-
-    /*
-	r.GET("/api/", amanda.Api)
-	r.GET("/api/v2/collections/", amanda.Collections)
-	r.GET("/api/v2/collections/:namespace/:name/", amanda.Collection)
-	r.GET("/api/v2/collections/:namespace/:name/versions/", amanda.Versions)
-	r.GET("/api/v2/collections/:namespace/:name/versions/:version/", amanda.Version)
-    */
-
-	r.GET("/api/", galaxy_proxy.Api)
-    r.GET("/api/v1/roles/", galaxy_proxy.Roles)
-    r.GET("/api/v1/roles/:roleid/", galaxy_proxy.Roles)
-    r.GET("/api/v1/roles/:roleid/versions/", galaxy_proxy.Roles)
-
-	//r.Static("/artifacts", amanda.Artifacts)
-	r.Run(":" + port)
+    //r.Static("/artifacts", amanda.Artifacts)
+    r.Run(":" + port)
 }
