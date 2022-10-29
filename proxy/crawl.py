@@ -2,6 +2,7 @@
 
 import datetime
 import requests
+import subprocess
 
 
 perfmap = {}
@@ -38,7 +39,11 @@ def paginate(next_url):
         for tf in to_fetch:
             print(tf)
             rr = requests.get(tf)
-        #import epdb; epdb.st()
+            ds = rr.json()
+            if 'download_url' in ds:
+                dl_url = base_url + ds['download_url']
+                subprocess.run(f'curl -o /tmp/test {dl_url}', shell=True)
+                #import epdb; epdb.st()
 
 
 def crawl_collections():

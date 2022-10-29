@@ -6,6 +6,7 @@ import (
     "encoding/json"
     "flag"
     "fmt"
+    "io"
     "io/ioutil"
     "os"
     "strings"
@@ -167,6 +168,39 @@ func (g *GalaxyProxy) UpstreamHandler(c *gin.Context) {
 }
 
 
+func (g *GalaxyProxy) ArtifactHandler(c *gin.Context) {
+
+	artifact_paths := strings.Split(c.Request.URL.Path, "/")
+    fmt.Println(artifact_paths)
+    artifact_filename := artifact_paths[len(artifact_paths) - 1]
+    fmt.Println(artifact_filename)
+
+    // define the cache filename ...
+    fdir := ".cache/download"
+    fpath := fdir + "/" + artifact_filename
+
+    // make cache directory if not exists ...
+    if _, err := os.ReadDir(fdir); err != nil {
+        os.MkdirAll(fdir, 0755)
+    }
+
+    // download the file
+    if _, err := os.Stat(fpath); err != nil {
+        download_url := upstream_baseurl + "/download/" + artifact_filename
+        fmt.Println("CACHE MISS " + download_url + " > " + fpath)
+        out, _ := os.Create(fpath)
+        defer out.Close()
+        resp, _ := http.Get(download_url)
+        defer resp.Body.Close()
+        io.Copy(out, resp.Body)
+    }
+
+    // return the file
+    c.File(fpath)
+}
+
+
+
 func main() {
     var artifacts string
     var port string
@@ -199,6 +233,9 @@ func main() {
     r.GET("/api/v2/collections/:namespace/:name/", galaxy_proxy.UpstreamHandler)
     r.GET("/api/v2/collections/:namespace/:name/versions/", galaxy_proxy.UpstreamHandler)
     r.GET("/api/v2/collections/:namespace/:name/versions/:version/", galaxy_proxy.UpstreamHandler)
+
+    // downloads
+    r.GET("/download/:artifact", galaxy_proxy.ArtifactHandler)
 
     //r.Static("/artifacts", amanda.Artifacts)
     r.Run(":" + port)
