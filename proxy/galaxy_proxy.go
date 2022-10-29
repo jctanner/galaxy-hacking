@@ -218,6 +218,7 @@ func main() {
     r.GET("/api/", galaxy_proxy.Api)
 
     // v1
+    r.GET("/api/v1/", galaxy_proxy.UpstreamHandler)
     r.GET("/api/v1/users/", galaxy_proxy.UpstreamHandler)
     r.GET("/api/v1/users/:userid/", galaxy_proxy.UpstreamHandler)
     r.GET("/api/v1/namespaces/", galaxy_proxy.UpstreamHandler)
@@ -229,6 +230,7 @@ func main() {
     r.GET("/api/v1/roles/:roleid/versions/", galaxy_proxy.UpstreamHandler)
 
     // v2
+    r.GET("/api/v2/", galaxy_proxy.UpstreamHandler)
     r.GET("/api/v2/collections/", galaxy_proxy.UpstreamHandler)
     r.GET("/api/v2/collections/:namespace/:name/", galaxy_proxy.UpstreamHandler)
     r.GET("/api/v2/collections/:namespace/:name/versions/", galaxy_proxy.UpstreamHandler)
@@ -238,5 +240,5 @@ func main() {
     r.GET("/download/:artifact", galaxy_proxy.ArtifactHandler)
 
     //r.Static("/artifacts", amanda.Artifacts)
-    r.Run(":" + port)
+    r.Run("0.0.0.0:" + port)
 }
