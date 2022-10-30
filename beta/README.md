@@ -1,3 +1,21 @@
+## v1 roles
+
+1. export HUB_TOKEN=
+2. export HUB_USERNAME=
+3. export HUB_PASSWORD=
+4. export GALAXY_DOWNSTREAM_BASEURL=
+5. export GALAXY_UPSTREAM_BASEURL=
+6. python sync_roles.py
+
+## v2 collections
+
+1. export HUB_TOKEN=
+2. export HUB_USERNAME=
+3. export HUB_PASSWORD=
+4. export GALAXY_DOWNSTREAM_BASEURL=
+5. export GALAXY_UPSTREAM_BASEURL=
+6. python import_galaxy_collections_with_sync.py
+
 ## v3 namespace and owners sync
 1. python fetch_upstream_namespaces.py
 2. create_django_script.py
