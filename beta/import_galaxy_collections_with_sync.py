@@ -108,7 +108,7 @@ def get_collection_versions(cname, nexturl, baseurl=None):
     return results
 
 
-def generate_sync_requirements(cmap):
+def generate_sync_requirements(cmap, baseurl):
     reqs ={'collections': []}
     keys = sorted(list(cmap.keys()))
     for key in keys:
@@ -117,7 +117,7 @@ def generate_sync_requirements(cmap):
             ds = {
                 'name': '.'.join(key),
                 'version': version['version'],
-                'source': 'http://galaxy-nginx.galaxy-prod.svc:8000/'
+                'source': f'{baseurl}/'
             }
             reqs['collections'].append(ds)
     return reqs
@@ -155,9 +155,13 @@ def main():
         )
         cmap[key] = cversions
 
-    greqs = generate_sync_requirements(cmap)
+    greqs = generate_sync_requirements(cmap, upstream_baseurl)
     greqs_string = yaml.safe_dump(greqs)
 
+    print('')
+    print('*' * 50)
+    print('get sync config')
+    print('*' * 50)
     if token:
         rr1 = requests.get(sync_config_url, headers={'Authorization': f'token {token}'}, verify=False)
     else:
@@ -165,6 +169,10 @@ def main():
     assert rr1.status_code == 200
     cfg = rr1.json()
 
+    print('')
+    print('*' * 50)
+    print('generated new config')
+    print('*' * 50)
     cfg['url'] = upstream_baseurl.rstrip('/') + '/api/'
     cfg['requirements_file'] = greqs_string
     with open('galaxy_requirements.yml', 'w') as f:
@@ -173,6 +181,10 @@ def main():
     print(cfg)
 
     # set the config
+    print('')
+    print('*' * 50)
+    print('set new config')
+    print('*' * 50)
     if token:
         rr2 = requests.put(
             sync_config_url,
@@ -191,13 +203,16 @@ def main():
     assert rr2.status_code == 200
 
     # start the sync
+    print('*' * 50)
+    print('start sync')
+    print('*' * 50)
     if token:
         rr3 = requests.post(sync_url, headers={'Authorization': f'token {token}'}, json={}, verify=False)
     else:
         rr3 = requests.post(sync_url, auth=(username, password), json={}, verify=False)
     print(rr3)
     # {'task': '9e8129f6-e547-4142-bb95-22e520e3156f'}
-    assert rr3.statu_codes == 200
+    assert rr3.status_code == 200
 
 
 if __name__ == "__main__":
