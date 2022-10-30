@@ -8,3 +8,5 @@ artifacts
 ah-dump.xz
 *.swp
 *.sqlite
+
+*/.cache
