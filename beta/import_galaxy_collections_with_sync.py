@@ -197,7 +197,7 @@ def main():
         rr3 = requests.post(sync_url, auth=(username, password), json={}, verify=False)
     print(rr3)
     # {'task': '9e8129f6-e547-4142-bb95-22e520e3156f'}
-    assert rr3.statu_code == 200
+    assert rr3.statu_codes == 200
 
 
 if __name__ == "__main__":
