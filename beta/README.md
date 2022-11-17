@@ -20,3 +20,9 @@
 1. python fetch_upstream_namespaces.py
 2. create_django_script.py
 3. docker exec -it galaxy_ng_api_1 /bin/bash -c 'django-admin shell < /src/galaxy_ng/dev/standalone-community/userimport.py'
+
+## v1 namespace and roles sync
+
+```
+curl -u admin:admin -H 'Content-Type: application/json' -X POST -d '{"baseurl": "http://192.168.122.99:8080/api/v1/roles"}' http://localhost:5001/api/v1/sync/
+```
