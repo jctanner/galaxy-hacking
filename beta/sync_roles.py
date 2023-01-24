@@ -10,8 +10,9 @@ def main():
     password = os.environ.get('HUB_PASSWORD')
     upstream_baseurl = os.environ.get(
         'GALAXY_UPSTREAM_BASEURL',
-        'https://galaxy.ansible.com/api/v1/roles/'
+        'https://galaxy.ansible.com'
     )
+    baseurl = upstream_baseurl + '/api/v1/roles/'
     downstream_baseurl = os.environ.get(
         'GALAXY_DOWNSTREAM_BASEURL',
         'https://beta-galaxy-dev.ansible.com'
@@ -22,7 +23,7 @@ def main():
         'json': {'baseurl': baseurl},
     }
     if token:
-        headers = {'Authorization': f'token {token}')
+        headers = {'Authorization': f'token {token}'}
         kwargs['headers'] = headers
     elif username and password:
         kwargs['auth'] = (username, password)
