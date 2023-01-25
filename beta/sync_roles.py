@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import requests
-
+import os
 
 def main():
 
@@ -17,7 +17,7 @@ def main():
         'GALAXY_DOWNSTREAM_BASEURL',
         'https://beta-galaxy-dev.ansible.com'
     )
-    sync_url = downstream_baseurl + '/api/v1/sync'
+    sync_url = downstream_baseurl + '/api/v1/sync/'
 
     kwargs = {
         'json': {'baseurl': baseurl},
