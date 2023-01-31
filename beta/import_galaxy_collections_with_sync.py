@@ -138,8 +138,8 @@ def main():
         'GALAXY_DOWNSTREAM_BASEURL',
         'https://beta-galaxy-dev.ansible.com'
     )
-    sync_config_url = downstream_baseurl + '/api/content/community/v3/sync/config/'
-    sync_url = downstream_baseurl + '/api/content/community/v3/sync/'
+    sync_config_url = downstream_baseurl + '/api/content/published/v3/sync/config/'
+    sync_url = downstream_baseurl + '/api/content/published/v3/sync/'
     api = 'api'
 
     upstream_collections = get_upstream_collection_list(baseurl=upstream_baseurl)
