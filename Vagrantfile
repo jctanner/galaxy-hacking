@@ -10,7 +10,8 @@ Vagrant.configure("2") do |config|
   config.vm.synced_folder ".", "/vagrant", type: "nfs", nfs_udp: false
 
   config.vm.define "galaxy-dev" do |dev|
-    dev.vm.box = "generic/ubuntu2004"
+    #dev.vm.box = "generic/ubuntu2004"
+    dev.vm.box = "generic/debian11"
     dev.vm.hostname = "galaxy-dev"
   end
 
