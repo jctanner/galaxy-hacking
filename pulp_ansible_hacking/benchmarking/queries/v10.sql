@@ -40,7 +40,28 @@ SELECT
                 AND
                     crc2.content_id=acvs.content_ptr_id
             )>=1
-    ) as sig_count
+    ) as sig_count,
+
+    (
+        SELECT
+            --GROUP_CONCAT(content_id)
+            STRING_AGG(cast(acvs.content_ptr_id as varchar), ', ')
+        FROM
+            ansible_collectionversionsignature acvs
+        WHERE
+            acvs.signed_collection_id=acv.content_ptr_id
+            AND
+            (
+                SELECT
+                    COUNT(*)
+                FROM
+                    core_repositorycontent crc2
+                WHERE
+                    crc2.repository_id=cr.pulp_id
+                AND
+                    crc2.content_id=acvs.content_ptr_id
+            )>=1
+    ) as sigs
 
 from
     core_repositorycontent crc

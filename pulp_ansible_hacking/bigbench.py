@@ -537,7 +537,7 @@ def main():
 
     # make a scaling upwards seriees of numbers ...
     fib_sequence = []
-    for x in range(2, 22):
+    for x in range(2, 23):
         fib_sequence.append(fibonacci(x))
 
     # can't bench a number smaller than what is in the system ...

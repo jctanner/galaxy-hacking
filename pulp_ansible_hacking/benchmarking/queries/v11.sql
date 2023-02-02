@@ -1,10 +1,46 @@
+DROP VIEW IF EXISTS repository_collectionsignature;
+
+CREATE OR REPLACE VIEW repository_collectionsignature AS
+
+SELECT
+
+    cr.pulp_id as repository_id,
+    cr.name,
+    acvs.content_ptr_id,
+    acvs.signed_collection_id as collectionversion_id,
+
+    MAX(crv1.number) as sig_vadded,
+    coalesce(MAX(crv2.number), -1) as sig_vremoved,
+
+    True as is_signed
+
+from
+    core_repositorycontent crc
+left join
+    ansible_collectionversionsignature acvs on acvs.content_ptr_id=crc.content_id
+left join
+    core_repository cr on cr.pulp_id=crc.repository_id
+left join
+    core_repositoryversion crv1 on crv1.pulp_id=crc.version_added_id
+left join
+    core_repositoryversion crv2 on crv2.pulp_id=crc.version_removed_id
+left join
+    ansible_collectionversion acv on acv.content_ptr_id=acvs.content_ptr_id
+WHERE
+    acvs.content_ptr_id is not null
+GROUP BY
+    cr.pulp_id, acvs.content_ptr_id
+HAVING
+    MAX(crv1.number) > coalesce(MAX(crv2.number), -1)
+;
+
+
 DROP VIEW IF EXISTS repository_collection_version;
 
 CREATE OR REPLACE VIEW repository_collection_version AS
 
 SELECT
 
-    CONCAT(cr.pulp_id, '-', acv.content_ptr_id) as id,
     cr.pulp_id as repository_id,
     cr.name as reponame,
     acv.content_ptr_id as collectionversion_id,
@@ -49,6 +85,7 @@ SELECT
 
     (
         SELECT
+            --GROUP_CONCAT(content_id)
             STRING_AGG(cast(acvs.content_ptr_id as varchar), ', ')
         FROM
             ansible_collectionversionsignature acvs
@@ -65,7 +102,18 @@ SELECT
                 AND
                     crc2.content_id=acvs.content_ptr_id
             )>=1
-    ) as sigs
+    ) as sigs,
+
+    coalesce(( 
+        SELECT
+            rcvs.is_signed
+        FROM
+            repository_collectionsignature rcvs
+        WHERE
+            cr.pulp_id=rcvs.repository_id
+            AND
+            acv.content_ptr_id=rcvs.collectionversion_id
+    ), False) as is_signed
 
 from
     core_repositorycontent crc
@@ -84,3 +132,6 @@ GROUP BY
 HAVING
    MAX(crv1.number) > coalesce(MAX(crv2.number), -1)
 ;
+
+
+SELECT * FROM repository_collection_version;

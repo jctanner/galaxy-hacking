@@ -1,10 +1,5 @@
-DROP VIEW IF EXISTS repository_collection_version;
-
-CREATE OR REPLACE VIEW repository_collection_version AS
-
 SELECT
 
-    CONCAT(cr.pulp_id, '-', acv.content_ptr_id) as id,
     cr.pulp_id as repository_id,
     cr.name as reponame,
     acv.content_ptr_id as collectionversion_id,
@@ -26,30 +21,10 @@ SELECT
             acd.name=acv.name
     ) as deprecation_count,
 
-    -- count the number of applicable signatures for this CV+repo
     (
         SELECT
-            COUNT(*)
-        FROM
-            ansible_collectionversionsignature acvs
-        WHERE
-            acvs.signed_collection_id=acv.content_ptr_id
-            AND
-            (
-                SELECT
-                    COUNT(*)
-                FROM
-                    core_repositorycontent crc2
-                WHERE
-                    crc2.repository_id=cr.pulp_id
-                AND
-                    crc2.content_id=acvs.content_ptr_id
-            )>=1
-    ) as sig_count,
-
-    (
-        SELECT
-            STRING_AGG(cast(acvs.content_ptr_id as varchar), ', ')
+            --GROUP_CONCAT(content_id)
+            STRING_AGG(cast(content_id as varchar), ', ')
         FROM
             ansible_collectionversionsignature acvs
         WHERE
