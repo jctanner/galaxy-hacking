@@ -347,6 +347,17 @@ def random_spec(fakearg=None):
     return spec
 
 
+def increment_spec(spec):
+    version = spec[:][-1]
+    parts = [int(x) for x in version.split('.')]
+    parts[0] +=1
+    parts[1] +=1
+    parts[2] +=1
+    newv = '.'.join(str(x) for x in parts)
+    newspec = [spec[0], spec[1], newv]
+    return newspec
+
+
 def get_specs(count=100, build=True):
 
     specs = []
@@ -377,15 +388,10 @@ def get_specs(count=100, build=True):
             get_artifact(*nspec)
         specs.extend(newspecs)
 
-        '''
-        for x in range(0, count - len(specs)):
-            logger.info(f'spec {x}')
-            rspec = random_spec()
-
-            if build:
-                get_artifact(*rspec)
-            specs.append(rspec)
-        '''
+    for x in range(0, 10):
+        this_spec = random.choice(specs)
+        nextv = increment_spec(this_spec)
+        specs.append(nextv)
 
     specs = sorted(specs)
     if len(specs) > count:
@@ -449,12 +455,14 @@ def get_stats():
     bench_urls = [
         baseurl + "/pulp_ansible/galaxy/default/api/v3/plugin/ansible/search/collection-versions/",
         baseurl + "/pulp_ansible/galaxy/default/api/v3/plugin/ansible/search/collection-versions/?repository=automation-hub-1",
-        baseurl + f"/pulp_ansible/galaxy/default/api/v3/plugin/ansible/search/collection-versions/?repository={random_repo}",
+        baseurl + f"/pulp_ansible/galaxy/default/api/v3/plugin/ansible/search/collection-versions/?repository_name={random_repo}",
         baseurl + f"/pulp_ansible/galaxy/default/api/v3/plugin/ansible/search/collection-versions/?namespace={random_namespace}",
         baseurl + f"/pulp_ansible/galaxy/default/api/v3/plugin/ansible/search/collection-versions/?name={random_name}",
         baseurl + f"/pulp_ansible/galaxy/default/api/v3/plugin/ansible/search/collection-versions/?version={random_version}",
         baseurl + "/pulp_ansible/galaxy/default/api/v3/plugin/ansible/search/collection-versions/?signed=true",
         baseurl + "/pulp_ansible/galaxy/default/api/v3/plugin/ansible/search/collection-versions/?signed=false",
+        baseurl + "/pulp_ansible/galaxy/default/api/v3/plugin/ansible/search/collection-versions/?highest=true",
+        baseurl + "/pulp_ansible/galaxy/default/api/v3/plugin/ansible/search/collection-versions/?highest=false",
     ]
 
     '''
@@ -492,8 +500,10 @@ def get_stats():
                 else:
                     page_number = 1
 
-            if 'count' not in ds:
+            if 'meta' not in ds:
                 import epdb; epdb.st()
+
+            logger.info(f'count: {ds["meta"]["count"]}')
 
             stats[next_page] = {
                 'url': next_page,
@@ -502,15 +512,15 @@ def get_stats():
                 'duration_seconds': delta,
                 #'repos_cvs_count': len(rcv_keys),
                 'cvs_count': len(cv_keys),
-                'page_meta_count': ds['count'],
-                'page_result_count': len(ds['results']),
+                'page_meta_count': ds['meta']['count'],
+                'page_result_count': len(ds['data']),
                 'repo_count': repos_count,
                 'signed': 'signed=' in next_page
             }
 
             next_page = None
-            if ds['next']:
-                next_page = ds['next']
+            if ds['links']['next']:
+                next_page = baseurl + ds['links']['next']
 
     return stats
 
@@ -546,22 +556,16 @@ def main():
     #total = len(list(cvmap.keys()))
     published_specs = get_collection_versions_from_db()
     total = len(published_specs)
-    fib_sequence = [x for x in fib_sequence if x >= total]
 
-    '''
-    # make a bunch of repositories ...
-    repos = get_repositories_from_db()
-    if len(repos) < 1000:
-        sequence = [x for x in range(0, 1000 - len(repos))]
-        for x in sequence:
-            reponame = RW.get_random_word()
-            logger.debug(f'make repo {reponame} {x} of {len(sequence)}')
-            create_repo(reponame, force=True)
-    '''
+    fib_sequence = [x for x in fib_sequence if x >= total]
 
     # benchmark each total count of CVs
     all_stats = []
-    for total in fib_sequence:
+
+    sequence = [x for x in range(100, 30000, 100)]
+    sequence = [x for x in sequence if x >= total]
+
+    for total in sequence:
 
         logger.info('-' * 50)
         logger.info(f'BENCH {total} CVs')
@@ -574,15 +578,18 @@ def main():
             if len(repos) < total:
 
                 desired_count = random.choice([x for x in range(len(repos), total)])
+                desired_count = int(total * .15)
 
-                sequence = [x for x in range(0, desired_count)]
-                for x in sequence:
-                    reponame = None
-                    while reponame is None or reponame in repos:
-                        reponame = RW.get_random_word()
-                    logger.debug(f'make repo {reponame} {x} of {len(sequence)}')
-                    create_repo(reponame, force=True)
-                    repos.append(reponame)
+                if desired_count > len(repos):
+
+                    rsequence = [x for x in range(0, desired_count)]
+                    for x in rsequence:
+                        reponame = None
+                        while reponame is None or reponame in repos:
+                            reponame = RW.get_random_word()
+                        logger.debug(f'make repo {reponame} {x} of {len(sequence)}')
+                        create_repo(reponame, force=True)
+                        repos.append(reponame)
 
         create_repo('automation-hub-1', force=True)
         create_repo('automation-hub-2', force=True)

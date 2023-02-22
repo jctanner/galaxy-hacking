@@ -14,7 +14,7 @@ import yaml
 
 import requests
 from logzero import logger
-from random_word import RandomWords
+# from random_word import RandomWords
 
 
 BASEURL = 'http://localhost:5001'
@@ -22,7 +22,6 @@ AUTH = ('admin', 'password')
 ANSIBLE_DISTRIBUTION_PATH = '/pulp/api/v3/distributions/ansible/ansible/'
 ANSIBLE_REPO_PATH = '/pulp/api/v3/repositories/ansible/ansible/'
 
-RW = RandomWords()
 
 
 def copy_file_to_conainer(container_name, src, dst):
