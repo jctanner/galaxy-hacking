@@ -10,3 +10,5 @@ ah-dump.xz
 *.sqlite
 
 */.cache
+*.tar.gz
+*.swp

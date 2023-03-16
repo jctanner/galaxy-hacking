@@ -1,0 +1,8 @@
+#!/bin/bash
+
+CNAMES=$(docker ps -a | awk '{print $1}' | fgrep -v CONTAINER)
+for CNAME in $CNAMES; do
+    echo $CNAME
+    docker kill $CNAME
+    docker rm $CNAME
+done

@@ -1,0 +1,10 @@
+#!/bin/bash
+
+printf '%-40s %-20s %-10s\n' "CONTAINER" "IP" "HOSTNAME"
+CNAMES=$(docker ps | awk '{print $NF}' | fgrep -v NAMES)
+for CNAME in $CNAMES; do
+    THISIP=$(docker inspect ${CNAME} | fgrep '"IPAddress":' | fgrep -v '""' | awk '{print $NF}' | tr -d ',' | tr -d '"')
+    THISHOST=$(docker inspect ${CNAME} | fgrep '"Hostname":' | fgrep -v '""' | awk '{print $NF}' | tr -d ',' | tr -d '"')
+    #echo "${CNAME} ${THISIP} ${THISHOST}"
+    printf '%-40s %-20s %-10s\n' ${CNAME} ${THISIP} ${THISHOST}
+done
