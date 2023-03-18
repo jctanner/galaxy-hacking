@@ -354,57 +354,27 @@ class WorkflowJobStep:
 
         env = self.get_github_env()
 
+        venv_path = os.path.expanduser('~/ghacktion.venv')
+
         # make a venv?
-        if os.path.exists('.venv'):
-            shutil.rmtree('.venv')
-        pid = subprocess.run('virtualenv .venv', shell=True)
+        if os.path.exists(venv_path):
+            shutil.rmtree(venv_path)
+        pid = subprocess.run(f'virtualenv {venv_path}', shell=True)
         assert pid.returncode == 0
 
         # need some packages?
         for pkg in ['pytest', 'epdb']:
-            subprocess.run(f'.venv/bin/pip install {pkg}', shell=True)
-
-        '''
-        # get current path ...
-        PATH = env.get('PATH')
-        if PATH is None:
-            res = subprocess.run('echo $PATH', shell=True, env=env, stdout=subprocess.PIPE)
-            PATH = res.stdout.decode('utf-8').strip()
-        if not PATH.startswith('.venv/bin:'):
-            PATH = f'.venv/bin:{PATH}'
-
-        # how to make it active for all future python commands?
-        self.update_github_env('PATH', PATH)
-
-        # do we need to fix TERM too?
-        TERM = env.get('TERM')
-        if TERM is None:
-            res = subprocess.run('echo $TERM', shell=True, env=env, stdout=subprocess.PIPE)
-            TERM = res.stdout.decode('utf-8').strip()
-        self.update_github_env('TERM', TERM)
-        '''
-
-        '''
-        res = subprocess.run('source .venv/bin/activate >/dev/null && env', shell=True, env=env, stdout=subprocess.PIPE)
-        new_env_lines = res.stdout.decode('utf-8').split('\n')
-        for newline in new_env_lines:
-            k = newline.split('=', 1)[0]
-            try:
-                v = newline.split('=', 1)[1]
-            except IndexError:
-                v = ''
-            if k not in env or env[k] != v:
-                self.update_github_env(k, v)
-        '''
+            subprocess.run(f'{venv_path}/bin/pip install {pkg}', shell=True)
 
         # get current path ...
         PATH = env.get('PATH')
         if PATH is None:
             res = subprocess.run('echo $PATH', shell=True, env=env, stdout=subprocess.PIPE)
             PATH = res.stdout.decode('utf-8').strip()
-        venv_path = os.path.abspath(os.path.expanduser('.venv/bin'))
-        if not PATH.startswith(f'{venv_path}:'):
-            PATH = f'{venv_path}:{PATH}'
+        venv_bin_path = os.path.abspath(os.path.expanduser('.venv/bin'))
+        venv_bin_path = os.path.join(venv_path, 'bin')
+        if not PATH.startswith(f'{venv_bin_path}:'):
+            PATH = f'{venv_bin_path}:{PATH}'
 
         # how to make it active for all future python commands?
         self.update_github_env('PATH', PATH)
