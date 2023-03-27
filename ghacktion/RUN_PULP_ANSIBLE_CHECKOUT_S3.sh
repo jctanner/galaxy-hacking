@@ -23,6 +23,7 @@ if [[ ! -d ~/.config ]]; then
 fi
 sudo rm -rf ~/.config/pulp
 sudo rm -rf ~/.config/pulp_smash
+sudo chown -R $(whoami):$(whoami) ~/.config
 
 sudo rm -rf /tmp/ghacktion*
 rm -f ~/.netrc
@@ -64,13 +65,13 @@ fi
 
 echo $(pwd)
 
-#./ghacktion --local --repo=pulp/pulp_ansible --number=1062 run --file=ci.yml --job=test --noclean
-#./ghacktion --local --repo=pulp/pulp_ansible --number=1067 run --file=ci.yml --job=test --noclean
 
-#/vagrant/ghacktion/ghacktion.py --local --checkout=$SRCPATH/pulp_ansible list --file=ci.yml --job=test
-exit 0
+/vagrant/ghacktion/ghacktion.py \
+    --local \
+    --checkout=$SRCPATH/pulp_ansible \
+    run \
+        --file=ci.yml \
+        --job=test \
+        --matrix_env='{"TEST": "s3"}' \
+        --noclean
 
-#/vagrant/ghacktion/ghacktion.py --local --checkout=$SRCPATH/pulp_ansible run --file=ci.yml --job=test --step="Extract Deprecations from Logs" --noclean
-/vagrant/ghacktion/ghacktion.py --local --checkout=$SRCPATH/pulp_ansible run --file=ci.yml --job=test --step="Logs" --noclean
-
-# /vagrant/ghacktion/ghacktion.py --local --checkout=$SRCPATH/pulp_ansible run --file=ci.yml --job=test --noclean

@@ -75,6 +75,8 @@ class WorkflowJobStep:
         self._workflow = workflow
         self.parse()
 
+        self.update_github_env("GITHUB_OUTPUT", "/tmp/github.output")
+
     def __repr__(self):
         return f'<WorkflowJobStep: {self._name or self._uses}>'
 
@@ -379,7 +381,6 @@ class WorkflowJobStep:
         # how to make it active for all future python commands?
         self.update_github_env('PATH', PATH)
 
-
     def execute(self, matrix=None, checkout=None, debug=False):
 
         print('#' * 50)
@@ -591,30 +592,41 @@ class WorkflowJob:
         if os.path.exists(_ansible):
             shutil.rmtree(_ansible)
 
-    def execute(self, checkout=None, debug=False):
+    def execute(self, checkout=None, debug=False, step=None, matrix_env=None):
 
         print('#' * 50)
-        print(f'# {self._name}')
+        print(f'# JOB: {self._name}')
         print('#' * 50)
+
+        if matrix_env:
+            matrix_env = json.loads(matrix_env)
 
         if self._matrix:
 
             for matrix in self._matrix:
-
-                # skip the docs,azure,s3,stream tests
-                if 'env' in matrix and matrix['env']['TEST'] != 'pulp':
-                    continue
+                if matrix_env is None:
+                    # skip the docs,azure,s3,stream tests
+                    if 'env' in matrix and matrix['env']['TEST'] != 'pulp':
+                        continue
+                else:
+                    if 'env' in matrix:
+                        kv = list(matrix_env.items())[0]
+                        key = kv[0]
+                        val = kv[1]
+                        if matrix['env'][key] != val:
+                            continue
 
                 self.clean()
-
                 for wstep in self._steps:
+                    if step and wstep.name != step and 'checkout' not in wstep.name:
+                        continue
                     wstep.execute(matrix=matrix, checkout=checkout, debug=debug)
 
         else:
-
             self.clean()
-
             for wstep in self._steps:
+                if step and wstep.name != step and 'checkout' not in wstep.name:
+                    continue
                 wstep.execute(checkout=checkout, debug=debug)
 
 
@@ -695,6 +707,8 @@ class AbstractExecutor:
         workspace=None,
         workflow=None,
         job=None,
+        step=None,
+        matrix_env=None,
         checkout=None,
         debug=False,
         pause=False,
@@ -706,6 +720,8 @@ class AbstractExecutor:
         self._number = number
         self._workflow = workflow
         self._job = job
+        self._step = step
+        self._matrix_env = matrix_env
         self._checkout = checkout
         self._workspace = workspace
         self._debug = debug
@@ -910,7 +926,7 @@ class AbstractExecutor:
                         continue
                     print(f'RUN {job.name}')
                     #import epdb; epdb.st()
-                    job.execute(debug=self._debug)
+                    job.execute(debug=self._debug, step=self._step, matrix_env=self._matrix_env)
 
             print('DONE')
             sys.exit(0)
@@ -976,6 +992,7 @@ def main():
     run_parser.add_argument('--file')
     run_parser.add_argument('--job')
     run_parser.add_argument('--step')
+    run_parser.add_argument('--matrix_env', help="use this keypair to define what matrix item to run")
     run_parser.add_argument('--pause', action='store_true', help='pause after each step')
     run_parser.add_argument('--debug', action='store_true')
     run_parser.add_argument('--noclean', action='store_true')
@@ -1023,9 +1040,9 @@ def main():
             for wf in workflows:
                 print(f'# {wf.filename}')
                 for job in wf.jobs:
-                    print(job.name)
+                    print(f'JOB: {job.name}')
                     for ids,step in enumerate(job.steps):
-                        print(f'\t{ids}. {step.name}')
+                        print(f'\tSTEP {ids}. {step.name}')
             sys.exit(0)
 
     if args.command == 'run':
@@ -1042,6 +1059,8 @@ def main():
             #workspace=tdir,
             workflow=args.file,
             job=args.job,
+            step=args.step,
+            matrix_env=args.matrix_env,
             checkout=args.checkout,
             debug=args.debug,
             pause=args.pause,
