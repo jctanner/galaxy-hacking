@@ -1,6 +1,6 @@
 #!/bin/bash -x
 
-set -e
+#set -e
 
 if [[ $(whoami) != "runner" ]]; then
     echo "you must be the 'runner' user for pulp ci to work"
@@ -17,6 +17,8 @@ cd /vagrant
 ./scripts/docker-killall
 DELETE_ALL=1 ./scripts/docker-rmall
 docker images | fgrep ci_build | awk '{print $3}' | xargs -I {} docker rmi {}
+
+set -e
 
 if [[ ! -d ~/.config ]]; then
     mkdir -p ~/.config
@@ -67,10 +69,11 @@ echo $(pwd)
 #./ghacktion --local --repo=pulp/pulp_ansible --number=1062 run --file=ci.yml --job=test --noclean
 #./ghacktion --local --repo=pulp/pulp_ansible --number=1067 run --file=ci.yml --job=test --noclean
 
-#/vagrant/ghacktion/ghacktion.py --local --checkout=$SRCPATH/pulp_ansible list --file=ci.yml --job=test
-exit 0
+/vagrant/ghacktion/ghacktion.py --local --checkout=$SRCPATH/pulp_ansible list --file=ci.yml --job=test
+#exit 0
 
+/vagrant/ghacktion/ghacktion.py --local --checkout=$SRCPATH/pulp_ansible run --file=ci.yml --job=test --noclean
 #/vagrant/ghacktion/ghacktion.py --local --checkout=$SRCPATH/pulp_ansible run --file=ci.yml --job=test --step="Extract Deprecations from Logs" --noclean
-/vagrant/ghacktion/ghacktion.py --local --checkout=$SRCPATH/pulp_ansible run --file=ci.yml --job=test --step="Logs" --noclean
+#/vagrant/ghacktion/ghacktion.py --local --checkout=$SRCPATH/pulp_ansible run --file=ci.yml --job=test --step="Logs" --noclean
 
 # /vagrant/ghacktion/ghacktion.py --local --checkout=$SRCPATH/pulp_ansible run --file=ci.yml --job=test --noclean

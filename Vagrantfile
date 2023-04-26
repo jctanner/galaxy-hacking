@@ -64,6 +64,15 @@ Vagrant.configure("2") do |config|
      mkdir -p /var/lib/gems
      chown -R vagrant:vagrant /var/lib/gems
 
+    # for ghacktion
+    useradd --shell=/bin/bash runner
+    cp -Rp /home/vagrant /home/runner
+    chown -R runner:runner /home/runner
+    usermod -aG docker runner
+    cp /etc/sudoers.d/vagrant /etc/sudoers.d/runner
+    sed -i.bak 's:vagrant:runner:g' /etc/sudoers.d/runner
+    rm -f /etc/sudoers.d/runner.bak
+
   SHELL
 
 end
