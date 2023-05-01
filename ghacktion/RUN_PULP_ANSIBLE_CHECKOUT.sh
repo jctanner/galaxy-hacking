@@ -47,6 +47,9 @@ cd $SRCPATH
 #sudo rm -rf src/pulp_ansible/.venv
 sudo rm -rf ~/ghacktion.venv
 
+sudo rm -rf ~/.config/pulp
+sudo rm -rf ~/.config
+
 #sudo rm -f src/pulp_ansible/.ci/ansible/Containerfile
 #sudo rm -rf src/pulp_ansible/.ci/ansible/settings
 #sudo rm -rf src/pulp_ansible/.ci/ansible/vars
