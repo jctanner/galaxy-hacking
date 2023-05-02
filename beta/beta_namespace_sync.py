@@ -89,6 +89,10 @@ def create_downstream_namespaces(upstream_namespaces):
         if not re.match(NAME_REGEXP, nskey):
             continue
 
+        # is it long enough?
+        if len(nskey) <= 2:
+            continue
+
         for owner in ns['owners']:
             users_to_sync.add(owner['username'])
 
@@ -138,6 +142,9 @@ def create_downstream_namespaces(upstream_namespaces):
 
         upstream_ns = upstream_namespaces[nskey]
         upstream_owners = [x['username'] for x in upstream_ns['summary_fields']['owners']]
+
+        if 'pulp_href' not in current_namespaces[nskey]:
+            import epdb; epdb.st()
 
         # rbac ... ?
         for uowner in upstream_owners:
