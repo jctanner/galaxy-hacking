@@ -13,10 +13,10 @@ from logzero import logger
 # https://github.com/ansible/galaxy-importer/blob/master/galaxy_importer/constants.py#L45
 NAME_REGEXP = re.compile(r"^(?!.*__)[a-z]+[0-9a-z_]*$")
 
-UPSTREAM = "https://galaxy.ansible.com"
-DOWNSTREAM = "http://localhost:5001"
-DOWNSTREAM_USER = 'admin'
-DOWNSTREAM_PASS = 'admin'
+UPSTREAM = os.environ.get("GALAXY_UPSTREAM_BASEURL", "https://galaxy.ansible.com")
+DOWNSTREAM = os.environ.get("GALAXY_DOWNSTREAM_BASEURL", "http://localhost:5001")
+DOWNSTREAM_USER = os.environ.get("HUB_USERNAME", 'admin')
+DOWNSTREAM_PASS = os.environ.get("HUB_PASSWWORD", 'admin')
 SESSION = requests_cache.CachedSession('demo_cache')
 
 
