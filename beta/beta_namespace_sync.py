@@ -189,7 +189,7 @@ def create_downstream_namespaces(upstream_namespaces):
                 #    json={'role': role_name, 'content_object': ns_href},
                 #    auth=(DOWNSTREAM_USER, DOWNSTREAM_PASS)
                 #)
-                rr2 = downsream_call(
+                rr2 = downstream_call(
                     DOWNSTREAM + f'/api/pulp/api/v3/users/{userid}/roles/',
                     data={'role': role_name, 'content_object': ns_href},
                     method='post'
