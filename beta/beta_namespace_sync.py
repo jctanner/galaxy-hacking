@@ -17,7 +17,24 @@ UPSTREAM = os.environ.get("GALAXY_UPSTREAM_BASEURL", "https://galaxy.ansible.com
 DOWNSTREAM = os.environ.get("GALAXY_DOWNSTREAM_BASEURL", "http://localhost:5001")
 DOWNSTREAM_USER = os.environ.get("HUB_USERNAME", 'admin')
 DOWNSTREAM_PASS = os.environ.get("HUB_PASSWWORD", 'admin')
+DOWNSTREAM_TOKEN = os.environ.get('HUB_TOKEN')
 SESSION = requests_cache.CachedSession('demo_cache')
+
+
+def downstream_call(url, data=None, method='get'):
+
+    func = getattr(requests, method)
+    kwargs = {}
+
+    if DOWNSTREAM_TOKEN:
+        kwargs['headers'] = {'Authorization': f'token {DOWNSTREAM_TOKEN}'}
+    else:
+        kwargs['auth'] = (DOWNSTREAM_USER, DOWNSTREAM_PASS)
+
+    if data is not None:
+        kwargs['json'] = data
+
+    return func(url, **kwargs)
 
 
 def get_upstream_namespaces():
@@ -104,7 +121,8 @@ def create_downstream_namespaces(upstream_namespaces):
     current_namespaces = {}
     next_url = DOWNSTREAM + '/api/_ui/v1/namespaces/'
     while next_url:
-        rr = requests.get(next_url, auth=(DOWNSTREAM_USER, DOWNSTREAM_PASS))
+        #rr = requests.get(next_url, auth=(DOWNSTREAM_USER, DOWNSTREAM_PASS))
+        rr = downstream_call(next_url)
         ds = rr.json()
 
         for ns in ds['data']:
@@ -118,10 +136,11 @@ def create_downstream_namespaces(upstream_namespaces):
     # rbac ... ?
     #   https://github.com/ansible/galaxy_ng/blob/master/galaxy_ng/app/utils/rbac.py#L60-L62
     role_name = 'galaxy.collection_namespace_owner'
-    rr = requests.get(
-        DOWNSTREAM + f'/api/pulp/api/v3/roles/?name={role_name}',
-        auth=(DOWNSTREAM_USER, DOWNSTREAM_PASS)
-    )
+    #rr = requests.get(
+    #    DOWNSTREAM + f'/api/pulp/api/v3/roles/?name={role_name}',
+    #    auth=(DOWNSTREAM_USER, DOWNSTREAM_PASS)
+    #)
+    rr = downstream_call(DOWNSTREAM + f'/api/pulp/api/v3/roles/?name={role_name}')
     role_info = rr.json()['results'][0]
 
     # create or modify the namespaces
@@ -133,10 +152,15 @@ def create_downstream_namespaces(upstream_namespaces):
 
         if nskey not in current_namespaces:
             logger.info(f'create {nskey} namespace')
-            rr = requests.post(
+            #rr = requests.post(
+            #    DOWNSTREAM + '/api/_ui/v1/namespaces/',
+            #    json={'name': nskey, 'groups': []},
+            #    auth=(DOWNSTREAM_USER, DOWNSTREAM_PASS)
+            #)
+            rr = downstream_call(
                 DOWNSTREAM + '/api/_ui/v1/namespaces/',
-                json={'name': nskey, 'groups': []},
-                auth=(DOWNSTREAM_USER, DOWNSTREAM_PASS)
+                data={'name': nskey, 'groups': []},
+                method='post'
             )
             current_namespaces[nskey] = rr.json()
 
@@ -151,7 +175,8 @@ def create_downstream_namespaces(upstream_namespaces):
             uinfo = get_downstream_user(uowner)
             userid = uinfo['id']
             logger.info(f'\tcheck current roles for {uowner}')
-            rr = requests.get(DOWNSTREAM + f'/api/pulp/api/v3/users/{userid}/roles/', auth=(DOWNSTREAM_USER, DOWNSTREAM_PASS))
+            #rr = requests.get(DOWNSTREAM + f'/api/pulp/api/v3/users/{userid}/roles/', auth=(DOWNSTREAM_USER, DOWNSTREAM_PASS))
+            rr = downstream_call(DOWNSTREAM + f'/api/pulp/api/v3/users/{userid}/roles/')
             res = rr.json()
 
             # check if the ns is bound to the user ...
@@ -159,20 +184,26 @@ def create_downstream_namespaces(upstream_namespaces):
             matches = [x for x in res['results'] if x['role'] == role_name and x['content_object'] == ns_href]
             if not matches:
                 logger.info(f'\tadd {role_name}+{nskey} to user:{uowner}')
-                rr2 = requests.post(
+                #rr2 = requests.post(
+                #    DOWNSTREAM + f'/api/pulp/api/v3/users/{userid}/roles/',
+                #    json={'role': role_name, 'content_object': ns_href},
+                #    auth=(DOWNSTREAM_USER, DOWNSTREAM_PASS)
+                #)
+                rr2 = downsream_call(
                     DOWNSTREAM + f'/api/pulp/api/v3/users/{userid}/roles/',
-                    json={'role': role_name, 'content_object': ns_href},
-                    auth=(DOWNSTREAM_USER, DOWNSTREAM_PASS)
+                    data={'role': role_name, 'content_object': ns_href},
+                    method='post'
                 )
 
         #import epdb; epdb.st()
 
 
 def get_downstream_user(username):
-    rr = requests.get(
-        DOWNSTREAM + f'/api/_ui/v1/users/?username={username}',
-        auth=(DOWNSTREAM_USER, DOWNSTREAM_PASS)
-    )
+    #rr = requests.get(
+    #    DOWNSTREAM + f'/api/_ui/v1/users/?username={username}',
+    #    auth=(DOWNSTREAM_USER, DOWNSTREAM_PASS)
+    #)
+    rr = downstream_call(DOWNSTREAM + f'/api/_ui/v1/users/?username={username}')
     return rr.json()['data'][0]
 
 
@@ -185,7 +216,8 @@ def create_downstream_users(usernames):
     next_url = DOWNSTREAM + '/api/_ui/v1/users/?limit=100'
     while next_url:
         logger.info(next_url)
-        rr = requests.get(next_url, auth=(DOWNSTREAM_USER, DOWNSTREAM_PASS))
+        #rr = requests.get(next_url, auth=(DOWNSTREAM_USER, DOWNSTREAM_PASS))
+        rr = downstream_call(next_url)
         ds = rr.json()
 
         for user in ds['data']:
@@ -219,10 +251,15 @@ def create_downstream_users(usernames):
             'description': ''
         }
 
-        rr = requests.post(
+        #rr = requests.post(
+        #    DOWNSTREAM + '/api/_ui/v1/users/',
+        #    json=payload,
+        #    auth=(DOWNSTREAM_USER, DOWNSTREAM_PASS)
+        #)
+        rr = downstream_call(
             DOWNSTREAM + '/api/_ui/v1/users/',
-            json=payload,
-            auth=(DOWNSTREAM_USER, DOWNSTREAM_PASS)
+            data=payload,
+            method='post'
         )
         assert rr.status_code == 201, rr.text
 
