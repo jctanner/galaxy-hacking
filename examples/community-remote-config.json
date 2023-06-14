@@ -1,0 +1,62 @@
+{
+  "pk": "fb9a6c2c-7ba7-4653-a5ab-72ffad5f840b",
+  "name": "community",
+  "url": "https://galaxy.ansible.com/api/",
+  "policy": "immediate",
+  "created_at": "2022-10-06T15:59:25.414975Z",
+  "requirements_file": "{\"collections\": []}",
+  "updated_at": "2022-10-06T15:59:25.414989Z",
+  "username": null,
+  "tls_validation": true,
+  "client_cert": null,
+  "ca_cert": null,
+  "last_sync_task": {},
+  "repositories": [
+    {
+      "name": "published",
+      "description": "Community content repository",
+      "next_version": 1,
+      "distributions": [
+        {
+          "name": "published",
+          "base_path": "published",
+          "content_guard": "789dcad3-a588-4ab0-b251-225645b113b7",
+          "created_at": "2022-10-06T15:59:25.422013Z",
+          "updated_at": "2022-10-06T15:59:25.422026Z"
+        }
+      ],
+      "created_at": "2022-10-06T15:59:25.417772Z",
+      "updated_at": "2022-10-06T15:59:25.417787Z",
+      "last_sync_task": {}
+    }
+  ],
+  "pulp_href": "/api/automation-hub/pulp/api/v3/remotes/ansible/collection/fb9a6c2c-7ba7-4653-a5ab-72ffad5f840b/",
+  "download_concurrency": 10,
+  "proxy_url": null,
+  "proxy_username": null,
+  "write_only_fields": [
+    {
+      "name": "client_key",
+      "is_set": false
+    },
+    {
+      "name": "token",
+      "is_set": false
+    },
+    {
+      "name": "password",
+      "is_set": false
+    },
+    {
+      "name": "client_key",
+      "is_set": false
+    },
+    {
+      "name": "proxy_password",
+      "is_set": false
+    }
+  ],
+  "rate_limit": 8,
+  "signed_only": false,
+  "password": "bar"
+}

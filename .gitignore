@@ -12,3 +12,7 @@ ah-dump.xz
 */.cache
 *.tar.gz
 *.swp
+
+ah-dump
+beta/.data
+wisdom/cache
