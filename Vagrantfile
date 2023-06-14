@@ -58,7 +58,7 @@ Vagrant.configure("2") do |config|
      pip3 install -U pip wheel
      which ansible || pip3 install ansible
      ansible-galaxy role install geerlingguy.docker
-     cd /vagrant && ansible-playbook -i 'localhost,' docker.yml
+     cd /vagrant && ansible-playbook -i 'localhost,' playbooks/docker.yml
 
      # pulp workarounds?
      mkdir -p /var/lib/gems
