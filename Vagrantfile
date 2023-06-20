@@ -16,8 +16,13 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.define "galaxy-latest" do |latest|
-    latest.vm.box = "generic/ubuntu2004"
+    latest.vm.box = "generic/debian11"
     latest.vm.hostname = "galaxy-latest"
+  end
+
+  config.vm.define "galaxy-47" do |fourseven|
+    fourseven.vm.box = "generic/debian11"
+    fourseven.vm.hostname = "galaxy-47"
   end
 
   config.vm.define "galaxy-45" do |fourfive|
@@ -42,13 +47,13 @@ Vagrant.configure("2") do |config|
 
   config.vm.provider :libvirt do |libvirt|
     libvirt.cpus = 2
-    libvirt.memory = 8000
+    libvirt.memory = 4000
   end
 
   config.vm.provision "shell", inline: <<-SHELL
      export DEBIAN_FRONTEND=noninteractive
      apt -y update
-     apt -y upgrade
+     #apt -y upgrade
      apt -y install git jq python3-pip docker.io libpq-dev python3-virtualenv
 
      # there should be a package for this right?
