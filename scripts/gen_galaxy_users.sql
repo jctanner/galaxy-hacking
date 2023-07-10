@@ -2,7 +2,7 @@
 
 rm -f makeusers.sql
 
-for X in $(seq 1 50000); do
+for X in $(seq 1 60000); do
     echo "INSERT INTO galaxy_user (id, username, first_name, last_name, email, password, is_superuser, is_staff, is_active, date_joined) VALUES (${X}, 'foobarz${X}', 'foo', 'bar', 'foo@bar.com', 'redhat1234', false, false, false, current_timestamp);" >> makeusers.sql
 done
 

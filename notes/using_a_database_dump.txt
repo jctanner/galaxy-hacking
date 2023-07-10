@@ -1,21 +1,15 @@
-docker cp ah-dump.xz galaxy_ng_postgres_1:/tmp/.                                                                                                                                                                                              
-
-docker exec -it galaxy_ng_postgres_1 /bin/bash
-cd /tmp
-xz -d ah-dump.gz
-
-apt update
-apt install procps
-
+# bring up the stack
+make docker/all
+./compose up
 
 # need to kill all active psql clients first? ...
 docker ps -a | fgrep -v postgres | awk '{print $1}' | fgrep -v CONTAINER | xargs -I {} docker kill {}
 
-
 # Make the script that drop all the current tables ...
 psql -d galaxy_ng -U galaxy_ng
 
-bash -c 'psql -U galaxy_ng -d galaxy_ng -c "select '"'"'psql -U galaxy_ng -d galaxy_ng -c \"drop table if exists \\\"'"'"' || tablename || '"'"'\\\" cascade;\"'"'"' from pg_tables;" | grep drop >> /tmp/drop.sh'
+docker exec -it galaxy_ng_postgres_1 bash -c 'psql -U galaxy_ng -d galaxy_ng -c "select '"'"'psql -U galaxy_ng -d galaxy_ng -c \"drop table if exists \\\"'"'"' || tablename || '"'"'\\\" cascade;\"'"'"' from pg_tables;" | grep drop >> /tmp/drop.sh'
+docker exec -it galaxy_ng_postgres_1 bash -c 'chmod +x /tmp/drop.sh ; ./tmp/drop.sh'
 
 
 # copy the dump to the psql container and load it
@@ -25,11 +19,32 @@ docker cp ah-dump.xz galaxy_ng_postgres_1:/tmp/.
 docker exec -it galaxy_ng_postgres_1 /bin/bash
 cd /tmp
 xz -d ah-dump.gz
-chmod +x drop.sh
-./drop.sh
 psql -U galaxy_ng -d galaxy_ng < /tmp/ah-dump
 
 # re-apply migrations
 make docker/migrate
 make docker/loaddata # to get admin user
 
+# fix the admin
+psql -U galaxy_ng -c "delete from galaxy_user where username='admin'"
+pulpcore-manager shell
+from galaxy_ng.app.models import User
+admin, _ = User.objects.get_or_create(username='admin', id=100000)
+admin.set_password("admin")
+admin.is_superuser = True
+admin.is_staff = True
+admin.save()
+
+# kill the sync repos
+pulpcore-manager update-synclist-distros
+pulpcore-manager delete-synclist-repos --number=44000 --hard
+
+
+--------------------------------------------------------------
+
+# making a new dump
+docker exec -it galaxy_ng_postgres_1 /bin/bash
+cd /tmp
+pg_dump -U galaxy_ng galaxy_ng > galaxy_ng_4.7_2023_06_29.dump
+exit
+docker cp galaxy_ng_postgres_1:/tmp/galaxy_ng_4.7_2023_06_29.dump /vagrant/db_dumps/.
