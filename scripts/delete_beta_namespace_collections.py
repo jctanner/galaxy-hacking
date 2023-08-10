@@ -37,6 +37,7 @@ def main():
                 headers={'Authorizaton': f'token {args.token}'}
             )
             print(f'\t{drr.status_code}')
+            print(drr.json())
 
         if not ds['links']['next']:
             break
