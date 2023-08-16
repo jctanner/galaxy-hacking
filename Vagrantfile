@@ -50,6 +50,17 @@ Vagrant.configure("2") do |config|
     libvirt.memory = 4000
   end
 
+  config.vm.define "ghacktion" do |ghacktion|
+    ghacktion.vm.box = "generic/ubuntu2204"
+    ghacktion.vm.hostname = "ghacktion"
+
+    ghacktion.vm.provider :libvirt do |libvirt|
+      libvirt.cpus = 2
+      libvirt.memory = 7000
+    end
+
+  end
+
   config.vm.provision "shell", inline: <<-SHELL
      export DEBIAN_FRONTEND=noninteractive
      apt -y update
@@ -69,14 +80,16 @@ Vagrant.configure("2") do |config|
      mkdir -p /var/lib/gems
      chown -R vagrant:vagrant /var/lib/gems
 
-    # for ghacktion
-    useradd --shell=/bin/bash runner
-    cp -Rp /home/vagrant /home/runner
-    chown -R runner:runner /home/runner
-    usermod -aG docker runner
-    cp /etc/sudoers.d/vagrant /etc/sudoers.d/runner
-    sed -i.bak 's:vagrant:runner:g' /etc/sudoers.d/runner
-    rm -f /etc/sudoers.d/runner.bak
+      # for ghacktion
+      if [[ $(hostname -s) == "ghacktion" ]]; then
+        useradd --shell=/bin/bash runner
+        cp -Rp /home/vagrant /home/runner
+        chown -R runner:runner /home/runner
+        usermod -aG docker runner
+        cp /etc/sudoers.d/vagrant /etc/sudoers.d/runner
+        sed -i.bak 's:vagrant:runner:g' /etc/sudoers.d/runner
+        rm -f /etc/sudoers.d/runner.bak
+      fi
 
   SHELL
 

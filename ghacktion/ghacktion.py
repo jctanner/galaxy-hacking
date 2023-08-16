@@ -33,6 +33,8 @@ import jinja2
 from jinja2 import Template
 import requests
 
+from logzero import logger
+
 
 CONSTANTS = {
     'test': 'pulp',
@@ -297,11 +299,14 @@ class WorkflowJobStep:
         # git.checkout(checkoutInfo.ref, checkoutInfo.startPoint)
 
         env = self.get_github_env()
-        repo = env['GITHUB_REPOSITORY']
+        if 'GITHUB_REPOSITORY' not in env:
+            repo = None
+        else:
+            repo = env['GITHUB_REPOSITORY']
 
         # We don't want to do anything in this step if it's being
         # run from a local checkout.
-        if str(repo) == 'None':
+        if str(repo) == 'None' or os.path.exists(os.path.join(os.getcwd(), '.git')):
             self.update_github_env('GITHUB_PR_JSON', json.dumps({
                 'user': '',
                 'commits_url': '',
@@ -313,6 +318,8 @@ class WorkflowJobStep:
             self.update_github_env('GITHUB_HEAD_SHA', '')
             self.update_github_env('GITHUB_PR_COMMITS_URL', '')
             return
+
+        import epdb; epdb.st()
 
         repositoryurl = f'https://github.com/{repo}'
 
@@ -351,6 +358,9 @@ class WorkflowJobStep:
         subprocess.run(f'git checkout {base_ref}', shell=True)
         subprocess.run(f'git fetch origin {github_sha}', shell=True)
         subprocess.run(f'git checkout {github_sha}', shell=True)
+
+    def setup_python_v2(self):
+        return self.setup_python_v3()
 
     def setup_python_v3(self):
 
@@ -676,6 +686,7 @@ class AbstractExecutor:
     _number = None
     _dclient = None
     _instance = None
+    _workdir = None
     _workspace = None
     _workflow = None
     _job = None
@@ -704,6 +715,7 @@ class AbstractExecutor:
         backend='docker',
         repo=None,
         number=None,
+        workdir=None,
         workspace=None,
         workflow=None,
         job=None,
@@ -723,6 +735,7 @@ class AbstractExecutor:
         self._step = step
         self._matrix_env = matrix_env
         self._checkout = checkout
+        self._workdir = workdir
         self._workspace = workspace
         self._debug = debug
         self._pause = pause
@@ -807,22 +820,41 @@ class AbstractExecutor:
         '''We need a root dir to store all of the stuff'''
 
         if self._workspace is None:
-            tdir = tempfile.mkdtemp(prefix='ghacktion-')
+
+            if self._workdir is not None:
+                tdir = self._workdir
+            else:
+                tdir = tempfile.mkdtemp(prefix='ghacktion-')
+
             if not self._repo and self._checkout:
+                logger.info('no repo and no checkout given for workspace')
                 co_abs = os.path.abspath(self._checkout)
                 co_bp = os.path.basename(self._checkout)
                 self._workspace = os.path.join(
                     tdir,
-                    self.GITHUB_REPOSITORY_OWNER,
+                    #self.GITHUB_REPOSITORY_OWNER,
                     co_bp
                 )
                 topdir = os.path.dirname(self._workspace)
                 if not os.path.exists(topdir):
                     os.makedirs(topdir)
+
+                '''
                 pid = subprocess.run(f'ln -s {co_abs} {co_bp}', cwd=topdir, shell=True)
                 assert pid.returncode == 0
+                '''
+
+                # copy the checkout to the workdir ...
+                src = self._checkout
+                dst = os.path.join(tdir, os.path.basename(self._checkout))
+                import epdb; epdb.st()
+                shutil.copytree(src, dst)
+                #import epdb; epdb.st()
+
             else:
-                self._workspace = os.path.join(tdir, self._repo)
+                logger.info(f'using {self._repo} to make workspace')
+                self._workspace = os.path.join(tdir, os.path.basename(self._repo))
+
             if not os.path.exists(self._workspace):
                 os.makedirs(self._workspace)
 
@@ -855,8 +887,10 @@ class AbstractExecutor:
     def create_checkout(self):
         '''We need the checkout to be inside the workspace'''
         if self._backend_method == 'local' and self._checkout:
-            dst = os.path.join(self._workspace, os.path.basename(self._checkout))
+            #dst = os.path.join(self._workspace, os.path.basename(self._checkout))
+            dst = self._workspace
             if self._checkout != dst and not os.path.exists(dst):
+                import epdb; epdb.st()
                 shutil.copytree(self._checkout, dst)
 
         elif self._backend_method in ['local', 'docker'] and not self._checkout:
@@ -871,6 +905,11 @@ class AbstractExecutor:
             pid = subprocess.run(cmd, shell=True)
             assert pid.returncode == 0
             self._temporary_checkout = True
+
+            final_checkout = os.path.join(self._workspace, os.path.basename(self._repo))
+            import epdb; epdb.st()
+            shutil.copytree(self._checkout, final_checkout)
+            self._checkout = final_checkout
 
     def run(self, checkout=None):
 
@@ -920,6 +959,9 @@ class AbstractExecutor:
                 #wfn = os.path.join(self._checkout, wf)
                 #print(wfn)
                 #workflow = Workflow(wfn, workspace=self._workspace)
+
+                # make sure we are back in the root
+                os.chdir(self._workspace)
 
                 for job in workflow.jobs:
                     if self._job and job.name != self._job:
@@ -992,13 +1034,13 @@ def main():
     run_parser.add_argument('--file')
     run_parser.add_argument('--job')
     run_parser.add_argument('--step')
+    run_parser.add_argument('--workdir')
     run_parser.add_argument('--matrix_env', help="use this keypair to define what matrix item to run")
     run_parser.add_argument('--pause', action='store_true', help='pause after each step')
     run_parser.add_argument('--debug', action='store_true')
     run_parser.add_argument('--noclean', action='store_true')
 
     args = parser.parse_args()
-
 
     if args.command == 'list':
         with tempfile.TemporaryDirectory(prefix='ghacktion-') as tdir:
@@ -1057,6 +1099,7 @@ def main():
             repo=args.repo,
             number=args.number,
             #workspace=tdir,
+            workdir=args.workdir,
             workflow=args.file,
             job=args.job,
             step=args.step,

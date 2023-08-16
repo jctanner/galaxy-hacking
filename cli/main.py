@@ -19,12 +19,21 @@ def main():
     namespaces_parser.add_argument('action', choices=['list', 'create'])
     namespaces_parser.add_argument('--name')
 
+    collections_parser = subparsers.add_parser(
+        'collections',
+        help='collections'
+    )
+    collections_parser.add_argument('action', choices=['list', 'upload'])
+    collections_parser.add_argument('--filepath')
+
     args = parser.parse_args()
     gc = GalaxyClient(token=args.token, server=args.server)
 
     kwargs = {}
-    if args.name:
+    if hasattr(args, 'name'):
         kwargs['name'] = args.name
+    if hasattr(args, 'filepath'):
+        kwargs['filepath'] = args.filepath
 
     func_name = f'{args.parser_name}_{args.action}'
     func = getattr(gc, func_name)
