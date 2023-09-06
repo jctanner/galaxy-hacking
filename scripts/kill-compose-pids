@@ -1,0 +1,5 @@
+#!/bin/bash
+
+for KPID in $(ps aux | fgrep -i docker | fgrep compose | awk '{print $2}'); do
+    kill -9 $KPID
+done
