@@ -1,22 +1,44 @@
 #!/bin/bash -x
 
 
-for IMAGEID in $(docker images -a --digests | fgrep -v sha256 | awk '{print $4}' | fgrep -v IMAGE); do
+for IMAGEID in $(docker images -a --digests | fgrep -v sha256 | awk '{print $4}' | grep -v IMAGE); do
     echo "Removing ${IMAGEID} ..."
     docker rmi -f ${IMAGEID}
+done
+for IMAGEID in $(podman images -a --digests | fgrep -v sha256 | awk '{print $4}' | grep -v IMAGE); do
+    echo "Removing ${IMAGEID} ..."
+    podman rmi -f ${IMAGEID}
 done
 
 if [[ ! -z $DELETE_ALL ]]; then
     echo "DELETING ALL!"
-    for IMAGEID in $(docker images | awk '{print $3}' | fgrep -v IMAGE); do
+    for IMAGEID in $(docker images | awk '{print $3}' | grep -v IMAGE); do
         echo $IMAGEID
         docker rmi -f $IMAGEID
     done
+    for IMAGEID in $(podman images | awk '{print $3}' | grep -v IMAGE); do
+        echo $IMAGEID
+        podman rmi -f $IMAGEID
+    done
 fi
 
-for VOLUME in $(docker volume ls | awk '{print $2}' | fgrep -v VOLUME); do
+for VOLUME in $(docker volume ls | awk '{print $2}' | grep -v VOLUME); do
     docker volume rm $VOLUME
+done
+for VOLUME in $(podman volume ls | awk '{print $2}' | grep -v VOLUME); do
+    podman volume rm $VOLUME
 done
 
 echo "Pruning volumes ..."
 docker volume prune -f
+podman volume prune -f
+
+
+# https://superuser.com/questions/1741980/how-to-remove-btrfs-subvolumes-used-by-docker
+sudo su - -c '
+if [ -d /var/lib/docker/btrfs/subvolumes ]; then
+    echo "has subvolumes"
+    cd /var/lib/docker/btrfs/subvolumes
+    ls /var/lib/docker/btrfs/subvolumes | xargs btrfs subvolume delete
+fi
+'
