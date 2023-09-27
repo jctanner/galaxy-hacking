@@ -35,17 +35,22 @@ services:
       - PULP_DB_PASSWORD=galaxy42
       - PULP_DB_NAME=galaxy42
 
+  galaxy_ng_44_redis:
+    image: "redis:5"
+
   galaxy_ng_44:
     image: 'python:3.8'
     command: python -u /src/entrypoint.py
     volumes:
       - ".:/src"
     depends_on:
+      - galaxy_ng_44_redis
       - postgres
     env_file:
       - 'galaxy_ng.env'
     environment:
       - GALAXY_BRANCH=stable-4.4
+      - PULP_REDIS_HOST=galaxy_ng_44_redis
       - PULP_DB_HOST=postgres
       - POSTGRES_ADMIN_USERNAME=postgres
       - POSTGRES_ADMIN_PASSWORD=postgres
