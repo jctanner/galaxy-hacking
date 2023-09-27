@@ -1,0 +1,58 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:12
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - '5432:5432'
+    volumes: 
+      - "pg_data:/var/lib/postgresql/data"
+    command: ["postgres", "-c", "log_statement=all", "-c", "log_destination=stderr"]
+
+  galaxy_ng_42_redis:
+    image: "redis:5"
+
+  galaxy_ng_42:
+    image: 'python:3.6'
+    command: python -u /src/entrypoint.py
+    volumes:
+      - ".:/src"
+    depends_on:
+      - galaxy_ng_42_redis
+      - postgres
+    env_file:
+      - 'galaxy_ng.env'
+    environment:
+      - GALAXY_BRANCH=stable-4.2
+      - PULP_REDIS_HOST=galaxy_ng_42_redis
+      - PULP_DB_HOST=postgres
+      - POSTGRES_ADMIN_USERNAME=postgres
+      - POSTGRES_ADMIN_PASSWORD=postgres
+      - PULP_DB_USER=galaxy42
+      - PULP_DB_PASSWORD=galaxy42
+      - PULP_DB_NAME=galaxy42
+
+  galaxy_ng_48:
+    image: 'python:3.11'
+    command: python -u /src/entrypoint.py
+    volumes:
+      - ".:/src"
+    depends_on:
+      - postgres
+    env_file:
+      - 'galaxy_ng.env'
+    environment:
+      - GALAXY_BRANCH=stable-4.8
+      - PULP_DB_HOST=postgres
+      - POSTGRES_ADMIN_USERNAME=postgres
+      - POSTGRES_ADMIN_PASSWORD=postgres
+      - PULP_DB_USER=galaxy48
+      - PULP_DB_PASSWORD=galaxy48
+      - PULP_DB_NAME=galaxy48
+
+volumes:
+  pg_data:
+    name: pg_data
