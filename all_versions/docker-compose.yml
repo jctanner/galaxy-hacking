@@ -35,6 +35,78 @@ services:
       - PULP_DB_PASSWORD=galaxy42
       - PULP_DB_NAME=galaxy42
 
+  galaxy_ng_44:
+    image: 'python:3.8'
+    command: python -u /src/entrypoint.py
+    volumes:
+      - ".:/src"
+    depends_on:
+      - postgres
+    env_file:
+      - 'galaxy_ng.env'
+    environment:
+      - GALAXY_BRANCH=stable-4.4
+      - PULP_DB_HOST=postgres
+      - POSTGRES_ADMIN_USERNAME=postgres
+      - POSTGRES_ADMIN_PASSWORD=postgres
+      - PULP_DB_USER=galaxy44
+      - PULP_DB_PASSWORD=galaxy44
+      - PULP_DB_NAME=galaxy44
+
+  galaxy_ng_45:
+    image: 'python:3.8'
+    command: python -u /src/entrypoint.py
+    volumes:
+      - ".:/src"
+    depends_on:
+      - postgres
+    env_file:
+      - 'galaxy_ng.env'
+    environment:
+      - GALAXY_BRANCH=stable-4.5
+      - PULP_DB_HOST=postgres
+      - POSTGRES_ADMIN_USERNAME=postgres
+      - POSTGRES_ADMIN_PASSWORD=postgres
+      - PULP_DB_USER=galaxy45
+      - PULP_DB_PASSWORD=galaxy45
+      - PULP_DB_NAME=galaxy45
+
+  galaxy_ng_46:
+    image: 'python:3.9'
+    command: python -u /src/entrypoint.py
+    volumes:
+      - ".:/src"
+    depends_on:
+      - postgres
+    env_file:
+      - 'galaxy_ng.env'
+    environment:
+      - GALAXY_BRANCH=stable-4.6
+      - PULP_DB_HOST=postgres
+      - POSTGRES_ADMIN_USERNAME=postgres
+      - POSTGRES_ADMIN_PASSWORD=postgres
+      - PULP_DB_USER=galaxy46
+      - PULP_DB_PASSWORD=galaxy46
+      - PULP_DB_NAME=galaxy46
+
+  galaxy_ng_47:
+    image: 'python:3.9'
+    command: python -u /src/entrypoint.py
+    volumes:
+      - ".:/src"
+    depends_on:
+      - postgres
+    env_file:
+      - 'galaxy_ng.env'
+    environment:
+      - GALAXY_BRANCH=stable-4.7
+      - PULP_DB_HOST=postgres
+      - POSTGRES_ADMIN_USERNAME=postgres
+      - POSTGRES_ADMIN_PASSWORD=postgres
+      - PULP_DB_USER=galaxy47
+      - PULP_DB_PASSWORD=galaxy47
+      - PULP_DB_NAME=galaxy47
+
   galaxy_ng_48:
     image: 'python:3.11'
     command: python -u /src/entrypoint.py
