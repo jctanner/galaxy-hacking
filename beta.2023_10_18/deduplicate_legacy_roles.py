@@ -164,7 +164,10 @@ class RoleScore:
                 self.role.full_metadata['github_repo'] = v
                 self.role.save()
             elif k == 'add_versions':
-                import epdb; epdb.st()
+                for mv in self.missing_versions:
+                    self.log(f'add version {mv}')
+                    self.role.full_metadata['versions'].append(mv)
+                self.role.save()
 
 
 upstream_roles = {}
