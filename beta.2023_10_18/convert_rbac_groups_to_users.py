@@ -14,6 +14,7 @@ from pulpcore.plugin.util import (
 for namespace in Namespace.objects.all():
 
     if not namespace.name.startswith('namespace:'):
+        print(f'SKIP {namespace}')
         continue
 
     current_groups = get_groups_with_perms_attached_roles(
