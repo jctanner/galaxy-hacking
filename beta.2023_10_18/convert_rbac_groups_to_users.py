@@ -18,10 +18,12 @@ for namespace in Namespace.objects.all():
         include_model_permissions=False
     )
 
+    '''
     current_users = get_users_with_perms_attached_roles(
         namespace,
         include_model_permissions=False
     )
+    '''
 
     for cgroup in current_groups:
 
@@ -29,8 +31,13 @@ for namespace in Namespace.objects.all():
             continue
 
         for guser in cgroup.user_set.all():
+            '''
             if guser not in current_users:
                 print(f'Add {guser} to {namespace}')
                 rbac.add_user_to_v3_namespace(guser, namespace)
+            '''
+            print(f'Add {guser} to {namespace}')
+            rbac.add_user_to_v3_namespace(guser, namespace)
+
         print(f'Delete {cgroup}')
         cgroup.delete()
