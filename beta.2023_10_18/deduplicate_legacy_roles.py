@@ -67,7 +67,7 @@ class RoleScore:
         # should have been bound to a v3 namespace ...
         if not role.namespace.namespace:
             self.fixes['bind_v3_namespace'] = True
-            SELf.score -= 20
+            self.score -= 20
         else:
             current_owners = rbac.get_v3_namespace_owners(role.namespace.namespace)
             for expected_owner in self.expected_owners:
