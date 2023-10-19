@@ -209,9 +209,11 @@ for urid in urids:
         rmap.pop(urid)
 
 
-# handle de-dupe
+# handle de-dupe by upstream ID
 urids = list(rmap.keys())
 for urid in urids:
+
+    #continue
 
     if urid not in upstream_roles:
         continue
@@ -314,3 +316,110 @@ for urid in urids:
         for td in to_delete:
             td.delete()
         best.do_fixes()
+
+
+rmap = {}
+lrvals = LegacyRole.objects.values_list(
+    'id',
+    'full_metadata__upstream_id',
+    'full_metadata__github_user',
+    'full_metadata__github_repo',
+)
+for lrval in lrvals:
+    roleid = lrval[0]
+    upstream_id = lrval[1]
+    github_user = lrval[2]
+    github_repo = lrval[3]
+
+    '''
+    if not upstream_id and (not github_user or not github_repo):
+        print('no uid and no github_user or no github_repo')
+        import epdb; epdb.st()
+    '''
+
+    if upstream_id and upstream_id in upstream_roles:
+        upstream = upstream_roles[upstream_id]
+        guser = upstream['provider_name']
+        grepo = upstream['repository_original_name']
+        clone_url = f'https://github.com/{guser}/{grepo}'
+        upstream_role_fqn = f"{upstream['repository__provider__namespace__name']}.{upstream['role_name']}"
+
+        if not github_user:
+            github_user = guser
+        if not github_repo:
+            github_repo = grepo
+
+    if github_user is None or github_repo is None:
+        role = LegacyRole.objects.get(id=roleid)
+        if github_user is None:
+            github_user = role.namespace.name
+        if github_repo is None:
+            print(f'no repo for {role}')
+            import epdb; epdb.st()
+
+    key = (github_user, github_repo)
+    if key not in rmap:
+        rmap[key] = []
+    rmap[key].append(roleid)
+
+for key,role_ids in rmap.items():
+    if len(role_ids) <= 1:
+        continue
+
+    role_ids = sorted(role_ids)
+    print(role_ids)
+    roles = [LegacyRole.objects.get(id=x) for x in role_ids]
+    namespace_names = [x.namespace.name for x in roles]
+    print(roles)
+    print(namespace_names)
+
+    if sorted(set(namespace_names)) == ['alikins']:
+        continue
+    if sorted(set(namespace_names)) == ['newswangerd']:
+        continue
+    if sorted(set(namespace_names)) == ['cutwater']:
+        continue
+
+    upstream_ids = [x.full_metadata.get('upstream_id') for x in roles if x.full_metadata.get('upstream_id')]
+    upstream_ids = sorted(set(upstream_ids))
+    if not upstream_ids:
+        continue
+        #import epdb; epdb.st()
+    if len(upstream_ids) > 1:
+        continue
+
+    if upstream_ids:
+        upstream_id = upstream_ids[0]
+        urole = upstream_roles[urid]
+    else:
+        urole = None
+
+    # get ALL the owners ...
+    all_owners = set()
+    for role in roles:
+        v3ns = role.namespace.namespace
+        if v3ns:
+            owners = rbac.get_v3_namespace_owners(v3ns)
+            for owner in owners:
+                all_owners.add(owner)
+
+    # get the longest list of versions ...
+    versions = [x.full_metadata.get('versions') for x in roles]
+    versions = [(len(x), x) for x in versions]
+    versions = sorted(versions, key=lambda x: x[0])
+    versions = versions[-1][1]
+
+    # create scores ...
+    scores = [RoleScore(urole, versions, x, owners=all_owners) for x in roles]
+    best = sorted(scores, reverse=True, key=lambda x: x.score)[0]
+
+    if not CHECK_MODE:
+        to_delete = [x for x in roles if x != best.role]
+        for td in to_delete:
+            td.delete()
+        best.do_fixes()
+
+print('DONE!')
+#import epdb; epdb.st()
+
+
