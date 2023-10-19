@@ -13,10 +13,6 @@ from pulpcore.plugin.util import (
 
 for namespace in Namespace.objects.all():
 
-    if not namespace.name.startswith('namespace:'):
-        print(f'SKIP {namespace}')
-        continue
-
     current_groups = get_groups_with_perms_attached_roles(
         namespace,
         include_model_permissions=False
@@ -28,6 +24,10 @@ for namespace in Namespace.objects.all():
     )
 
     for cgroup in current_groups:
+
+        if not cgroup.name.startswith('namespace:'):
+            continue
+
         for guser in cgroup.user_set.all():
             if guser not in current_users:
                 print(f'Add {guser} to {namespace}')
