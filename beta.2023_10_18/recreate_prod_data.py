@@ -1,3 +1,4 @@
+import gzip
 import json
 
 from django.contrib.auth import get_user_model
@@ -66,8 +67,8 @@ for idr,ns_data in enumerate(namespace_owners_data):
 
 
 # make roles
-with open('new_roles.json', 'r') as f:
-    roles_data = json.loads(f.read())
+with gzip.open('new_roles.json.gz', 'rb') as gzip_file:
+    roles_data = json.loads(gzip_file.read().decode('utf-8'))
 total = len(roles_data)
 for idr,role_data in enumerate(roles_data):
 
