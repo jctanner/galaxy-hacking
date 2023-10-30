@@ -12,6 +12,16 @@ from urllib.parse import urlparse, parse_qs
 from logzero import logger
 
 
+def get_nested_value(d, key_string):
+    keys = key_string.split('.')
+    for key in keys:
+        if isinstance(d, dict):
+            d = d.get(key)
+        else:
+            raise KeyError(f"Key {key} not found or not a dictionary.")
+    return d
+
+
 class Cacher:
     def __init__(self, refresh=False):
         self.refresh = refresh
@@ -74,6 +84,7 @@ class Cacher:
         with open(fn, 'w') as f:
             f.write(json.dumps({'url': url, 'data': data}))
         self.cmap[url] = fn
+        #import epdb; epdb.st()
 
     def get(self, url):
 
@@ -83,6 +94,9 @@ class Cacher:
             return ds['data']
 
         logger.info(f'fetch {url}')
+
+        #import epdb; epdb.st()
+
         rr = requests.get(url)
         ds = rr.json()
         self.store(url, ds)
@@ -99,14 +113,20 @@ class Score:
         self.upstream_data = upstream_data
 
         self.fixes = {}
-        self._score = 0
+        self._score = 100
         self.process()
+
+    @property
+    def fqn(self):
+        ns = self.role_data['summary_fields']['namespace']['name']
+        name = self.role_data['name']
+        return ns + '.' + name
 
     def __repr__(self):
         return self.__str__()
 
     def __str__(self):
-        return f'{self.role_data["id"]} {self.score}%'
+        return f'{self.role_data["id"]} {self.fqn} {self.score}%'
 
     def __gt__(self, other):
         return self.score > other.score
@@ -119,75 +139,27 @@ class Score:
         return self._score
 
     def process(self):
-        # namespace.name ...
-        if self.role_data['summary_fields']['namespace']['name'] == self.upstream_data['summary_fields']['namespace']['name']:
-            self._score += 10
-        else:
-            self.fixes['namespace.name'] = self.upstream_data['summary_fields']['namespace']['name']
 
-        # name
-        if self.role_data['name'] == self.upstream_data['name']:
-            self._score += 10
-        else:
-            self.fixes['name'] = self.upstream_data['name']
-
-        # github_user
-        if self.role_data['github_user'] == self.upstream_data['github_user']:
-            self._score += 10
-        else:
-            self.fixes['github_user'] = self.upstream_data['github_user']
-
-        # github_repo
-        if self.role_data['github_repo'] == self.upstream_data['github_repo']:
-            self._score += 10
-        else:
-            self.fixes['github_repo'] = self.upstream_data['github_repo']
-
-        # github_branch
-        if self.role_data['github_branch'] == self.upstream_data['github_branch']:
-            self._score += 10
-        else:
-            self.fixes['github_branch'] = self.upstream_data['github_branch']
-
-        # repository name/original_name
-        if self.role_data['summary_fields']['repository']['name'] == \
-                self.upstream_data['summary_fields']['repository']['name']:
-            self._score += 10
-        else:
-            self.fixes['repository.name'] = self.upstream_data['summary_fields']['repository']['name']
-        if self.role_data['summary_fields']['repository']['original_name'] == \
-                self.upstream_data['summary_fields']['repository']['original_name']:
-            self._score += 10
-        else:
-            self.fixes['repository.original_name'] = self.upstream_data['summary_fields']['repository']['original_name']
-
-        # versions ...
-        #import epdb; epdb.st()
+        weight = 10
+        to_inspect = [
+            'summary_fields.namespace.name',
+            'summary_fields.repository.name',
+            'summary_fields.repository.original_name',
+            'name',
+            'github_user',
+            'github_repo',
+            'github_branch',
+        ]
+ 
+        for key in to_inspect:
+            upstream_val = get_nested_value(self.upstream_data, key)
+            downstream_val = get_nested_value(self.role_data, key)
+            if downstream_val != upstream_val:
+                self._score -= weight
+                self.fixes[key] = [downstream_val, upstream_val]
 
 
-
-def scrape_old_roles(cacher):
-
-    roles = []
-
-    baseurl = 'https://old-galaxy.ansible.com'
-    next_page = f'{baseurl}/api/v1/roles/'
-    while next_page:
-        logger.info(next_page)
-        #rr = requests.get(next_page)
-        ds = cacher.get(next_page)
-
-        for role in ds['results']:
-            roles.append(role)
-
-        if not ds.get('next_link'):
-            break
-        next_page = baseurl + ds['next_link']
-
-    return roles
-
-
-def scrape_new_roles(cacher, server=None):
+def scrape_roles(cacher, server=None):
 
     roles = []
 
@@ -201,14 +173,23 @@ def scrape_new_roles(cacher, server=None):
         for role in ds['results']:
             roles.append(role)
 
-        if not ds.get('next'):
+        if not ds.get('next') and not ds.get('next_link'):
             break
+
+        if ds.get('next_link'):
+            next_page = baseurl + ds['next_link']
+            continue
+
         next_page = ds['next']
+        if baseurl.startswith('https://') and next_page.startswith('http://'):
+            next_page = next_page.replace('http://', 'https://', 1)
+        if not next_page.startswith(baseurl):
+            next_page = baseurl + next_page
 
     return roles
 
 
-def compare(old_roles, new_roles):
+def compare_and_fix(old_roles, new_roles):
 
     old_by_id = dict((x['id'], x) for x in old_roles)
     new_by_id = dict((x['id'], x) for x in new_roles)
@@ -222,57 +203,63 @@ def compare(old_roles, new_roles):
             new_by_uid[uid] = []
         new_by_uid[uid].append(x['id'])
 
-    to_ignore = set()
-    to_fix = set()
-    to_delete = set()
-
-    for uid, role_ids in new_by_uid.items():
+    uidkeys = sorted(list(new_by_uid.keys()))
+    #for uid, role_ids in new_by_uid.items():
+    for _id,uid in enumerate(uidkeys):
 
         if uid not in old_by_id:
+            continue
+
+        role_ids = new_by_uid[uid]
+
+        if len(role_ids) < 2:
             continue
 
         upstream = old_by_id[uid]
         roles = [new_by_id[x] for x in role_ids]
 
+        ns_name = upstream['summary_fields']['namespace']['name']
+        name = upstream['name']
+        fqn = ns_name + '.' + name
+        #import epdb; epdb.st()
+
+        print(f'{_id}. {uid} - {fqn}')
+
         scores = [Score(x, upstream) for x in roles]
         scores = sorted(scores, reverse=True)
 
-        if scores[0].fixes:
-            to_fix.add(scores[0])
-        else:
-            to_ignore.add(scores[0])
+        print(f'\tKEEP {scores[0]}')
+        for k,v in scores[0].fixes.items():
+            print(f'\t\t{k} {v[0]} -> {v[1]}')
+            #import epdb; epdb.st()
 
         for x in scores[1:]:
-            to_delete.add(x)
+            print(f'\tDELETE {x}')
+            for k,v in x.fixes.items():
+                print(f'\t\t{k} {v[0]} -> {v[1]}')
+            #to_delete.add(x)
 
-    fixes = {}
-    for tf in to_fix:
-        for k,v in tf.fixes.items():
-            if k not in fixes:
-                fixes[k] = 0
-            fixes[k] += 1
+        #if len(role_ids) < 2:
+        #    continue
 
-    ds = {
-        'delete_role_ids': [x.role_data['id'] for x in to_delete],
-    }
-    for tf in to_fix:
-        for k,v in tf.fixes.items():
-
-            if k not in ds:
-                ds[k] = []
-
-            ds[k].append([tf.role_data['id'], v])
+        #import epdb; epdb.st()
 
 
 def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        '--upstream',
+        default='https://old-galaxy.ansible.com',
+        help='the old server'
+    )    
+    parser.add_argument(
         '--downstream',
         default='https://galaxy.ansible.com',
         help='the beta server'
     )
     parser.add_argument('--refresh', action='store_true')
+    parser.add_argument('--clean-downstream-cache', action='store_true')
     parser.add_argument('--clean-downstream-cache', action='store_true')
     args = parser.parse_args()
 
@@ -282,13 +269,12 @@ def main():
         cacher.clean(baseurl=args.downstream)
 
     # get all roles from old
-    old = scrape_old_roles(cacher)
+    old = scrape_roles(cacher, server=args.upstream)
 
     # get all roles from new
-    new = scrape_new_roles(cacher, server=args.downstream)
+    new = scrape_roles(cacher, server=args.downstream)
 
-    compare(old, new)
-    #import epdb; epdb.st()
+    compare_and_fix(old, new)
 
 
 if __name__ == "__main__":
