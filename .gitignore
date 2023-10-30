@@ -17,3 +17,6 @@ ah-dump
 beta/.data
 wisdom/cache
 db_dumps/*
+
+.cache/*
+*.log
