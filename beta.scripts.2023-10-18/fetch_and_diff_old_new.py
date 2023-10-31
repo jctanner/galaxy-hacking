@@ -198,7 +198,39 @@ def scrape_roles(cacher, server=None):
     return roles
 
 
-def compare_and_fix(old_roles, new_roles):
+def get_missing_tags(sorted_scores):
+
+    # merge all tags from all dupes
+    all_tags = set()        
+    for score in sorted_scores:
+        score_tags = [x['name'] for x in score.role_data['summary_fields']['versions']]
+        for st in score_tags:
+            all_tags.add(st)
+    
+    # check if the best score is missing any ...
+    missing_tags = []
+    if all_tags:
+        best_tags = [
+            x['name'] for x in 
+            sorted_scores[0].role_data['summary_fields']['versions']
+        ]
+        do_import = False
+        for tag in all_tags:
+            if tag not in best_tags:
+                missing_tags.append(tag)
+
+    return missing_tags
+
+
+
+def compare_and_fix(
+    old_roles,
+    new_roles,
+    write=False,
+    token=None,
+    downstream=None,
+    limit=None
+):
 
     old_by_id = dict((x['id'], x) for x in old_roles)
     new_by_id = dict((x['id'], x) for x in new_roles)
@@ -212,6 +244,7 @@ def compare_and_fix(old_roles, new_roles):
             new_by_uid[uid] = []
         new_by_uid[uid].append(x['id'])
 
+    total_changed = 0
     uidkeys = sorted(list(new_by_uid.keys()))
     for _id,uid in enumerate(uidkeys):
 
@@ -239,6 +272,11 @@ def compare_and_fix(old_roles, new_roles):
         # we can't edit fields yet ...
         if scores[0].score != 100:
             continue
+        
+        # we'd have to do an import to recreate missing versions ...
+        missing_tags = get_missing_tags(scores)
+        if missing_tags:
+            continue
 
         # show the user which one was best
         logger.info(f'\tKEEP {scores[0]}')
@@ -250,7 +288,27 @@ def compare_and_fix(old_roles, new_roles):
             logger.info(f'\tDELETE {x}')
             for k,v in x.fixes.items():
                 logger.info(f'\t\t{k} {v[0]} -> {v[1]}')
+            if write and token:
+                drr = delete_role(downstream, x.role_data['id'], token)
+                logger.info(f'\t\t{drr.status_code}')
+        
+        logger.info('-'  * 50)
+        logger.info(total_changed)
+        logger.info('-'  * 50)
+        total_changed += 1
+        if limit and total_changed >= limit:
+            break
 
+
+def delete_role(baseurl, role_id, token):
+    url = f'{baseurl}/api/v1/roles/{role_id}/'
+    logger.info(f'\t\tDELETE {url}')
+    rr = requests.delete(
+        url,
+        headers={'Authorization': f'token {token}'}
+    )
+    # import epdb; epdb.st()
+    return rr
 
 def main():
 
@@ -269,6 +327,7 @@ def main():
     parser.add_argument('--clean-downstream-cache', action='store_true')
     parser.add_argument('--write', action='store_true', help='commit changes')
     parser.add_argument('--token', default=os.environ.get('GALAXY_DOWNSTREAM_TOKEN'))
+    parser.add_argument('--limit', type=int)
 
     args = parser.parse_args()
 
@@ -290,7 +349,14 @@ def main():
     # get all roles from new
     new = scrape_roles(cacher, server=args.downstream)
 
-    compare_and_fix(old, new)
+    compare_and_fix(
+        old,
+        new,
+        write=args.write,
+        token=args.token,
+        downstream=args.downstream,
+        limit=args.limit
+    )
 
 
 if __name__ == "__main__":
