@@ -276,11 +276,7 @@ def compare_and_fix(
         scores = [Score(x, upstream) for x in roles]
         scores = sorted(scores, reverse=True)
 
-        # we can't edit fields yet ...
-        if scores[0].score != 100:
-            logger.warning(f'\tSKIPPING due to best score < 100 ... {scores[0].score}')
-            continue
-
+        total_changed += 1
         logger.info('-'  * 50)
         logger.info(total_changed)
         logger.info('-'  * 50)
@@ -289,6 +285,11 @@ def compare_and_fix(
         logger.info(f'\tKEEP {scores[0]}')
         for k,v in scores[0].fixes.items():
             logger.info(f'\t\t{k} {v[0]} -> {v[1]}')
+
+        # we can't edit fields yet ...
+        if scores[0].score != 100:
+            logger.warning(f'\tSKIPPING due to best score < 100 ... {scores[0].score}')
+            continue
 
         # delete all the others (usually just 1)
         for x in scores[1:]:
@@ -320,7 +321,7 @@ def compare_and_fix(
                 subprocess.run(cmd, shell=True)
             import epdb; epdb.st()
         
-        total_changed += 1
+        #total_changed += 1
         if limit and total_changed >= limit:
             break
 
