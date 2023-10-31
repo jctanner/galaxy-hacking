@@ -9,6 +9,7 @@ import glob
 import requests
 
 from urllib.parse import urlparse, parse_qs
+import logzero
 from logzero import logger
 
 
@@ -142,7 +143,7 @@ class Score:
 
         weight = 10
         to_inspect = [
-            'summary_fields.namespace.name',
+            ['summary_fields.namespace.name', weight * 2],
             'summary_fields.repository.name',
             'summary_fields.repository.original_name',
             'name',
@@ -152,11 +153,19 @@ class Score:
         ]
  
         for key in to_inspect:
-            upstream_val = get_nested_value(self.upstream_data, key)
-            downstream_val = get_nested_value(self.role_data, key)
+
+            this_key = key
+            this_weight = weight
+            if isinstance(key, list):
+                this_key = key[0]
+                this_weight = key[1]
+                #import epdb; epdb.st()
+
+            upstream_val = get_nested_value(self.upstream_data, this_key)
+            downstream_val = get_nested_value(self.role_data, this_key)
             if downstream_val != upstream_val:
-                self._score -= weight
-                self.fixes[key] = [downstream_val, upstream_val]
+                self._score -= this_weight
+                self.fixes[this_key] = [downstream_val, upstream_val]
 
 
 def scrape_roles(cacher, server=None):
@@ -204,7 +213,6 @@ def compare_and_fix(old_roles, new_roles):
         new_by_uid[uid].append(x['id'])
 
     uidkeys = sorted(list(new_by_uid.keys()))
-    #for uid, role_ids in new_by_uid.items():
     for _id,uid in enumerate(uidkeys):
 
         if uid not in old_by_id:
@@ -221,28 +229,27 @@ def compare_and_fix(old_roles, new_roles):
         ns_name = upstream['summary_fields']['namespace']['name']
         name = upstream['name']
         fqn = ns_name + '.' + name
-        #import epdb; epdb.st()
 
-        print(f'{_id}. {uid} - {fqn}')
+        logger.info(f'{_id}. {uid} - {fqn}')
 
+        # score each role against the upstream data
         scores = [Score(x, upstream) for x in roles]
         scores = sorted(scores, reverse=True)
 
-        print(f'\tKEEP {scores[0]}')
+        # we can't edit fields yet ...
+        if scores[0].score != 100:
+            continue
+
+        # show the user which one was best
+        logger.info(f'\tKEEP {scores[0]}')
         for k,v in scores[0].fixes.items():
-            print(f'\t\t{k} {v[0]} -> {v[1]}')
-            #import epdb; epdb.st()
+            logger.info(f'\t\t{k} {v[0]} -> {v[1]}')
 
+        # delete all the others (usually just 1)
         for x in scores[1:]:
-            print(f'\tDELETE {x}')
+            logger.info(f'\tDELETE {x}')
             for k,v in x.fixes.items():
-                print(f'\t\t{k} {v[0]} -> {v[1]}')
-            #to_delete.add(x)
-
-        #if len(role_ids) < 2:
-        #    continue
-
-        #import epdb; epdb.st()
+                logger.info(f'\t\t{k} {v[0]} -> {v[1]}')
 
 
 def main():
@@ -260,8 +267,15 @@ def main():
     )
     parser.add_argument('--refresh', action='store_true')
     parser.add_argument('--clean-downstream-cache', action='store_true')
-    parser.add_argument('--clean-downstream-cache', action='store_true')
+    parser.add_argument('--write', action='store_true', help='commit changes')
+    parser.add_argument('--token', default=os.environ.get('GALAXY_DOWNSTREAM_TOKEN'))
+
     args = parser.parse_args()
+
+    if args.write and not args.token:
+        raise Exception('A token must be provided to make changes.')
+
+    logzero.logfile("role_fixes.log")
 
     # make cache
     cacher = Cacher(refresh=args.refresh)
