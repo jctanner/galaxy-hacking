@@ -275,6 +275,8 @@ def main():
     if args.write and not args.token:
         raise Exception('A token must be provided to make changes.')
 
+    if os.path.exists('role_fixes.log'):
+        os.remove('role_fixes.log')
     logzero.logfile("role_fixes.log")
 
     # make cache
