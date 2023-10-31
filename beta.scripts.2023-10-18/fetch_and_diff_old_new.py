@@ -3,6 +3,8 @@
 import os
 import uuid
 import argparse
+import re
+import subprocess
 
 import json
 import glob
@@ -11,6 +13,11 @@ import requests
 from urllib.parse import urlparse, parse_qs
 import logzero
 from logzero import logger
+
+
+GITHUB_USERNAME_REGEXP = re.compile(r"^[a-zA-Z\d](?:[a-zA-Z\d]|-(?=[a-zA-Z\d])){0,38}$")
+LEGACY_ROLE_NAME_REGEXP = re.compile("^[a-zA-Z0-9_-]{1,55}$")
+LEGACY_NAMESPACE_REGEXP = re.compile("^([a-zA-Z0-9.]+[-_]?)+$")
 
 
 def get_nested_value(d, key_string):
@@ -271,12 +278,7 @@ def compare_and_fix(
 
         # we can't edit fields yet ...
         if scores[0].score != 100:
-            continue
-        
-        # we'd have to do an import to recreate missing versions ...
-        missing_tags = get_missing_tags(scores)
-        if missing_tags:
-            logger.warn(f'\tSKIPPING {fqn} to missing tags: {missing_tags}')
+            logger.warning(f'\tSKIPPING due to best score < 100 ... {scores[0].score}')
             continue
 
         logger.info('-'  * 50)
@@ -296,6 +298,27 @@ def compare_and_fix(
             if write and token:
                 drr = delete_role(downstream, x.role_data['id'], token)
                 logger.info(f'\t\t{drr.status_code}')
+
+        missing_tags = get_missing_tags(scores)
+        if missing_tags:
+            # do a re-import ...
+            logger.warning(
+                f'\treimporting {fqn} to recover missing tags {missing_tags}'
+            )
+            github_user = scores[0].role_data['github_user']
+            github_repo = scores[0].role_data['github_repo']
+            role_name = scores[0].role_data['name']
+            cmd = (
+                f'ansible-galaxy role import'
+                + f' -s {downstream}'
+                + f' --token={token}'
+                + f' --role-name={role_name}'
+                + f' {github_user} {github_repo}'
+            )
+            logger.info(f'\t{cmd}')
+            if write and token:
+                subprocess.run(cmd, shell=True)
+            import epdb; epdb.st()
         
         total_changed += 1
         if limit and total_changed >= limit:
