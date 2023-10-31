@@ -276,7 +276,12 @@ def compare_and_fix(
         # we'd have to do an import to recreate missing versions ...
         missing_tags = get_missing_tags(scores)
         if missing_tags:
+            logger.warn(f'\tSKIPPING {fqn} to missing tags: {missing_tags}')
             continue
+
+        logger.info('-'  * 50)
+        logger.info(total_changed)
+        logger.info('-'  * 50)
 
         # show the user which one was best
         logger.info(f'\tKEEP {scores[0]}')
@@ -292,9 +297,6 @@ def compare_and_fix(
                 drr = delete_role(downstream, x.role_data['id'], token)
                 logger.info(f'\t\t{drr.status_code}')
         
-        logger.info('-'  * 50)
-        logger.info(total_changed)
-        logger.info('-'  * 50)
         total_changed += 1
         if limit and total_changed >= limit:
             break
