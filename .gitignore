@@ -20,3 +20,5 @@ db_dumps/*
 
 .cache/*
 *.log
+
+config.sh
