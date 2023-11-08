@@ -12,6 +12,8 @@ from logzero import logger
 
 from github_lib import fetch_userdata_by_id
 from github_lib import fetch_userdata_by_name
+from namespace_utils import map_v3_namespace
+from namespace_utils import generate_v3_namespace_from_attributes
 
 
 class Cacher:
@@ -106,7 +108,31 @@ def scrape_users(cacher, server=None):
     return users
 
 
-def compare_namespaces(old_namespaces, new_namespaces, old_users=None):
+def scrape_v3_namespaces(cacher, server=None):
+    namespaces = []
+
+    if server is None:
+        baseurl = 'https://old-galaxy.ansible.com'
+    else:
+        baseurl = server
+
+    next_page = f'{baseurl}/api/v3/namespaces/'
+    while next_page:
+        logger.info(next_page)
+        ds = cacher.get(next_page)
+
+        for ns in ds['data']:
+            namespaces.append(ns)
+
+        if not ds['links'].get('next'):
+            break
+
+        next_page = baseurl + ds['links']['next']
+
+    return namespaces
+
+
+def compare_namespaces(old_namespaces, new_namespaces, old_users=None, v3_namespaces=None):
 
     old_by_name = {}
     new_by_name = {}
@@ -172,8 +198,23 @@ def compare_namespaces(old_namespaces, new_namespaces, old_users=None):
         missing_owners.append(old_name)
         #import epdb; epdb.st()
 
-    print(f'legacy namespaces w/ missing provider namespace: {len(missing_provider)}')
-    print(f'legacy namespaces w/ missing owner(s): {len(missing_owners)}')
+    logger.info('')
+    logger.info('==== STATS ====')
+    logger.warning(f'legacy namespaces w/ missing provider namespace: {len(missing_provider)}')
+    logger.warning(f'legacy namespaces w/ missing owner(s): {len(missing_owners)}')
+
+    logger.info('')
+    logger.info('==== MISSING PROVIDERS ====')
+    for ns_name in missing_provider:
+        nsdata = new_by_name[ns_name]
+        logger.info(ns_name)
+
+        gh_data = fetch_userdata_by_name(ns_name)
+        import epdb; epdb.st()
+
+        # v3_name = map_v3_namespace(ns_name)
+        v3_name = generate_v3_namespace_from_attributes(username=ns_name, github_id=github_id)
+        import epdb; epdb.st()
 
     import epdb; epdb.st()
 
@@ -194,13 +235,16 @@ def main():
     # get all users from old ...
     old_users = scrape_users(cacher)
 
-    # get all roles from old
+    # get all v3 namespaces from new
+    new_v3 = scrape_v3_namespaces(cacher, server=args.downstream)
+
+    # get all namespaces from old
     old = scrape_namespaces(cacher)
 
-    # get all roles from new
+    # get all namespace from new
     new = scrape_namespaces(cacher, server=args.downstream)
 
-    compare_namespaces(old, new, old_users=old_users)
+    compare_namespaces(old, new, old_users=old_users, v3_namespaces=new_v3)
     #import epdb; epdb.st()
 
 
