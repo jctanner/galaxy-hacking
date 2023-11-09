@@ -42,9 +42,14 @@ class GalaxyComparator:
     downstream_legacy_namespaces_by_name = None
     downstream_legacy_lowercase_namespace_name_map = None
     downstream_v3_namespaces_by_name = None
+    downstream_v3_collections_by_fqcn = None
+    downstream_legacyroles_by_fqrn = None
+    downstream_legacyusers_by_github_id = None
+    downstream_legacyusers_by_username = None
 
     upstream_collection_namespace_names = None
     upstream_legacyrole_namespace_names = None
+    upstream_legacyroles_by_fqrn = None
     upstream_legacy_namespaces_by_name = None
     upstream_legacy_users_by_name = None
 
@@ -140,6 +145,23 @@ class GalaxyComparator:
             server=self.args.downstream
         )
 
+    def fuzzy_match_downstream_roles(self, fqrn):
+        upstream = self.upstream_legacyroles_by_fqrn[fqrn]
+        github_user = upstream['github_user']
+        github_repo = upstream['github_repo']
+
+        if fqrn in self.downstream_legacyroles_by_fqrn:
+            return [self.downstream_legacyroles_by_fqrn[fqrn]]
+
+        matches = []
+        for dfqrn, role in self.downstream_legacyroles_by_fqrn.items():
+            if role['github_user'].lower() == github_user.lower() and \
+                    role['github_repo'].lower() == github_repo.lower():
+                matches.append(dfqrn)
+                continue
+
+        #import epdb; epdb.st()
+        return matches
 
     def bind_provider(self, server, v1_id, v3_id):
         """Set the provider namespace on a legacy namespace."""
@@ -152,7 +174,7 @@ class GalaxyComparator:
         # don't change if already set
         if v1_data['summary_fields']['provider_namespaces']:
             return
-        
+
         # FIXME
         return
 
@@ -167,7 +189,7 @@ class GalaxyComparator:
         )
         logger.info(f'\t\tprovider update status code: {prr.status_code}')
         #import epdb; epdb.st()
-        
+
     def process_data(self):
 
         self.upstream_legacy_namespaces_by_name = {}
@@ -205,6 +227,38 @@ class GalaxyComparator:
         for old_role in self.upstream_legacy_roles:
             self.upstream_legacyrole_namespace_names.add(old_role['summary_fields']['namespace']['name'])
 
+        self.downstream_v3_collections_by_fqcn = {}
+        for col in self.downstream_v3_collections:
+            fqcn = (col['namespace'], col['name'])
+            self.downstream_v3_collections_by_fqcn[fqcn] = col
+
+        self.downstream_legacyroles_by_fqrn = {}
+        for role in self.downstream_legacy_roles:
+            fqrn = (role['summary_fields']['namespace']['name'], role['name'])
+            self.downstream_legacyroles_by_fqrn[fqrn] = role
+
+        self.upstream_legacyroles_by_fqrn = {}
+        for role in self.upstream_legacy_roles:
+            ns_name = role['summary_fields']['namespace']['name']
+            if not ns_name:
+                continue
+            name = role['name']
+            fqrn = (ns_name, name)
+            self.upstream_legacyroles_by_fqrn[fqrn] = role
+            #import epdb; epdb.st()
+
+        self.downstream_legacyusers_by_github_id = {}
+        self.downstream_legacyusers_by_username = {}
+        for duser in self.downstream_legacy_users:
+
+            self.downstream_legacyusers_by_username[duser['username']] = duser
+
+            github_id = duser.get('github_id')
+            if not github_id:
+                continue
+            self.downstream_legacyusers_by_github_id[github_id] = duser
+
+
     def get_content_for_upstream_namespace(self, ns_name, case_insensitive=True):
         content = []
         for role in self.upstream_legacy_roles:
@@ -230,7 +284,7 @@ class GalaxyComparator:
             if case_insensitive and col_ns.lower() == ns_name.lower():
                 content.append(['collection', col_ns, collection['name']])
                 continue
-        
+
         return content
 
     def get_content_for_downstream_namespace(self, ns_name, case_insensitive=True):
@@ -259,7 +313,7 @@ class GalaxyComparator:
             if case_insensitive and col_ns.lower() == ns_name.lower():
                 content.append(['collection', col_ns, collection['name']])
                 continue
-        
+
         return content
 
     def compare_data(self):
@@ -268,7 +322,29 @@ class GalaxyComparator:
         missing_provider = []
         missing_owners = []
 
+        missing_roles = []
+        missing_collections = []
+
         upstream_namespaces_without_content = set()
+
+        for ucol in self.upstream_v2_collections:
+            fqcn = (ucol['namespace']['name'], ucol['name'])
+            if fqcn not in self.downstream_v3_collections_by_fqcn:
+                missing_collections.append(fqcn)
+        missing_collections = sorted(missing_collections)
+
+        for urole in self.upstream_legacy_roles:
+            if not urole['summary_fields']['namespace']['name']:
+                continue
+            fqrn = (urole['summary_fields']['namespace']['name'], urole['name'])
+            if fqrn not in self.downstream_legacyroles_by_fqrn:
+
+                # transformed?
+                #matches = self.fuzzy_match_downstream_roles(fqrn)
+                #if matches:
+                #    import epdb; epdb.st()
+                missing_roles.append(fqrn)
+        missing_roles = sorted(missing_roles)
 
         old_names = sorted(list(self.upstream_legacy_namespaces_by_name.keys()))
         for old_name in old_names:
@@ -316,9 +392,19 @@ class GalaxyComparator:
                     else:
                         old_owner_gh_login_current = None
 
+                    #if old_owner == '888jonno':
+                    #    import epdb; epdb.st()
+
                     # if they changed their username and the new username is an owner,
                     # they're not missing ...
-                    if old_owner_gh_login_current and old_owner_gh_login_current in new_owners:
+                    if old_owner_gh_login_current and \
+                            old_owner_gh_login_current in new_owners:
+                        continue
+
+                    # If we have their githubid as another username, that's good enough ...
+                    if old_owner_gh_id and \
+                            old_owner_gh_id in self.downstream_legacyusers_by_github_id and \
+                            self.downstream_legacyusers_by_github_id[old_owner_gh_id]['username'] in new_owners:
                         continue
 
                     _missing_owners.append(old_owner)
@@ -326,7 +412,7 @@ class GalaxyComparator:
             if not _missing_owners:
                 continue
 
-            missing_owners.append(old_name)
+            missing_owners.append([old_name, _missing_owners])
             #import epdb; epdb.st()
 
         logger.info('')
@@ -335,9 +421,13 @@ class GalaxyComparator:
         logger.warning(f'upstream namespaces with content: {with_content}')
         logger.warning(f'upstream namespaces without content: {len(list(upstream_namespaces_without_content))}')
         logger.warning(f'downstream legacy namespaces total: {len(self.downstream_legacy_namespaces)}')
+        logger.warning(f'downstream missing collections: {len(missing_collections)}')
+        logger.warning(f'downstream missing roles: {len(missing_roles)}')
         logger.warning(f'downstream missing legacy namespaces: {len(missing_v1_namespaces)}')
         logger.warning(f'downstream legacy namespaces w/ missing provider namespace: {len(missing_provider)}')
         logger.warning(f'downstream legacy namespaces w/ missing owner(s): {len(missing_owners)}')
+        logger.warning(f'downstream users: {len(self.downstream_legacy_users)}')
+        logger.warning(f'downstream users with github_ids: {len(self.downstream_legacyusers_by_github_id.keys())}')
 
         logger.info('')
         logger.info('==== MISSING PROVIDERS ====')
@@ -360,12 +450,11 @@ class GalaxyComparator:
                 continue
 
             logger.warning(f'\tno matching v3 namespace for {v3_name}')
-                #import epdb; epdb.st()
 
         logger.info('')
         logger.info('==== MISSING LEGACY NAMESPACES ====')
         for nid,ns_name in enumerate(missing_v1_namespaces):
-            logger.info(f'{nid}. {ns_name}')
+            logger.warning(f'{nid}. {ns_name}')
 
             legacy_names = self.downstream_legacy_lowercase_namespace_name_map.get(ns_name.lower())
             if legacy_names:
@@ -375,10 +464,77 @@ class GalaxyComparator:
             upstream_content = sorted(self.get_content_for_upstream_namespace(ns_name))
             for uc in upstream_content:
                 logger.info(f'\tustream - {uc}')
-            
+
             downstream_content = sorted(self.get_content_for_downstream_namespace(ns_name))
             for dc in downstream_content:
                 logger.info(f'\tdstream - {dc}')
+
+        logger.info('')
+        logger.info('==== MISSING OWNERS ====')
+        for nid,ns_tuple in enumerate(missing_owners):
+
+            ns_name = ns_tuple[0]
+            missing_owner_names = ns_tuple[1]
+
+            logger.info(f'{nid}. {ns_name}')
+
+            '''
+            upstream = self.upstream_legacy_namespaces_by_name[ns_name]
+            for upstream_owner in upstream['summary_fields']['owners']:
+                username = upstream_owner['username']
+                uudata = self.upstream_users_by_username[username]
+                github_id = uudata['github_id']
+                logger.info(f'\tu_owner: {username} ({github_id})')
+            '''
+
+            dstream = self.downstream_legacy_namespaces_by_name[ns_name]
+            for dstream_owner in dstream['summary_fields']['owners']:
+                username = dstream_owner['username']
+
+                logger.info(f'\td_owner: {username}')
+
+            for username in missing_owner_names:
+                if username not in self.upstream_users_by_username:
+                    import epdb; epdb.st()
+                uudata = self.upstream_users_by_username[username]
+                github_id = uudata['github_id']
+                gdata = fetch_userdata_by_id(github_id) or {}
+                real_login = gdata.get('login')
+
+                logger.info(f'\tmissing: {username} [{real_login}] {github_id}')
+
+                if github_id and github_id in self.downstream_legacyusers_by_github_id:
+                    matched_user = self.downstream_legacyusers_by_github_id[github_id]
+                    matched_username = matched_user['username']
+                    logger.info(f'\t\tmatched user by gid {matched_username} {github_id}')
+
+                else:
+
+                    # match by name? ...
+                    if username in self.downstream_legacyusers_by_username:
+                        matched_user = \
+                            self.downstream_legacyusers_by_username[username]
+                        logger.info(f'\t\tmatched user by un {username} {matched_user["id"]}')
+
+                    #import epdb; epdb.st()
+
+            #import epdb; epdb.st()
+
+
+        logger.info('')
+        logger.info('==== MISSING COLLECTIONS ====')
+        for idc,mc in enumerate(missing_collections):
+            logger.warning(f'{idc}. {mc[0]}.{mc[1]}')
+
+        logger.info('')
+        logger.info('==== MISSING ROLES ====')
+        for idc,fqrn in enumerate(missing_roles):
+            logger.warning(f'{idc}. {fqrn[0]}.{fqrn[1]}')
+
+            matches = self.fuzzy_match_downstream_roles(fqrn)
+            for match in matches:
+                logger.info(f'\tsimilar: {match}')
+            #import epdb; epdb.st()
 
         import epdb; epdb.st()
 
