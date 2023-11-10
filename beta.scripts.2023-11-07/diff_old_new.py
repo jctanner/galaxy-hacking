@@ -536,7 +536,7 @@ class GalaxyComparator:
                 logger.info(f'\tsimilar: {match}')
             #import epdb; epdb.st()
 
-        import epdb; epdb.st()
+        # import epdb; epdb.st()
 
 
 def main():
