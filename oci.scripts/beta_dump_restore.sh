@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# create dump through the jumphost with ...
+#   pg_dump -Fc -f beta_prod.dump -d galaxy -U galaxy -h localhost -p 5432
+
 
 # start fresh ...
 dropdb --user postgres galaxy
