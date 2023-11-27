@@ -2,8 +2,8 @@ import json
 
 from django.contrib.auth import get_user_model
 from galaxy_ng.app.api.v1.models import LegacyRole
-from galaxy_ng.app.models.survey import CollectionSurvey
-from galaxy_ng.app.models.survey import LegacyRoleSurvey
+from galaxy_ng.app.api.v1.models import CollectionSurvey
+from galaxy_ng.app.api.v1.models import LegacyRoleSurvey
 from pulp_ansible.app.models import Collection
 
 
