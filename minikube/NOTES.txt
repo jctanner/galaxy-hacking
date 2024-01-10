@@ -1,0 +1,20 @@
+minikube start --driver=kvm
+minikube addons enable registry
+minikube addons enable ingress
+minikube addons enable ingress-dns
+
+# why do i need to do this? ...
+kubectl port-forward --namespace kube-system service/registry 5000:80
+
+kubectl get pods
+
+kubectl exec --stdin --tty worker-67cdfdc7d9-gqhr9 -- /bin/bash
+
+kubectl scale deployment api --replicas=4
+
+minikube service api --url
+kubectl get service api
+
+
+kubectl get ingress
+minikube ip

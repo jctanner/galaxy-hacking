@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -f ../docker-compose.yml
+    kompose.version: 1.31.2 (a92241f79)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: content
+  name: content
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: content
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -f ../docker-compose.yml
+        kompose.version: 1.31.2 (a92241f79)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/minikubetesting-default: "true"
+        io.kompose.service: content
+    spec:
+      containers:
+        - args:
+            - /entrypoint
+            - content
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  key: POSTGRES_DB
+                  name: postgres-env
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  key: POSTGRES_PASSWORD
+                  name: postgres-env
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  key: POSTGRES_USER
+                  name: postgres-env
+          image: localhost:5000/local/api
+          name: content
+          ports:
+            - containerPort: 24816
+              hostPort: 24816
+              protocol: TCP
+          resources: {}
+          volumeMounts:
+            - mountPath: /var/lib/pulp
+              name: pulp-data
+      restartPolicy: Always
+      volumes:
+        - name: pulp-data
+          persistentVolumeClaim:
+            claimName: pulp-data
+status: {}

@@ -1,0 +1,11 @@
+apiVersion: v1
+data:
+  POSTGRES_DB: galaxy_ng
+  POSTGRES_PASSWORD: galaxy_ng
+  POSTGRES_USER: galaxy_ng
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: postgres-env
+  name: postgres-env

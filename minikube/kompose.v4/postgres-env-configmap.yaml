@@ -1,0 +1,11 @@
+apiVersion: v1
+data:
+  POSTGRES_DB: pgadmin
+  POSTGRES_PASSWORD: pgadmin
+  POSTGRES_USER: pgadmin
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: api-postgres-env
+  name: postgres-env

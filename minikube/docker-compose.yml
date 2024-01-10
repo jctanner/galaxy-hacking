@@ -1,0 +1,57 @@
+---
+version: "3.7"
+
+services:
+
+  postgres:
+    image: "postgres:12"
+    ports:
+      - "5432:5432"
+    env_file:
+      - 'postgres.env'
+    volumes:
+      - "pg_data:/var/lib/postgresql/data"
+
+  api:
+    image: localhost:5000/local/api
+    command: /entrypoint
+    ports:
+      - "8000:8000"
+    env_file:
+      - 'postgres.env'
+    depends_on:
+      - postgres
+    volumes:
+      - "pulp_data:/var/lib/pulp"
+
+  worker:
+    image: localhost:5000/local/api
+    command: /entrypoint worker
+    ports:
+      - "5002:5002"
+    env_file:
+      - 'postgres.env'
+    depends_on:
+      - postgres
+      #- api
+    volumes:
+      - "pulp_data:/var/lib/pulp"
+
+  content:
+    image: localhost:5000/local/api
+    command: /entrypoint content
+    ports:
+      - "24816:24816"
+    env_file:
+      - 'postgres.env'
+    depends_on:
+      - postgres
+      #- api
+    volumes:
+      - "pulp_data:/var/lib/pulp"
+
+volumes:
+  pg_data:
+    name: pg_data
+  pulp_data:
+    name: pulp_data
