@@ -95,6 +95,6 @@ for idc,chunk in enumerate(chunks):
     if task.state in TASK_STATES.FAILED:
         raise Exception('task failed')
 
-    sys.exit(0)
+    # sys.exit(0)
 
 
