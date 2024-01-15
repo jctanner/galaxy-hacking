@@ -23,9 +23,8 @@ published_content = published.content.all()
 content_namespaces = {}
 content_collection_namespaces = {}
 for pc in published_content:
-
-    print(pc.pulp_type)
-    if str(pc.pulp_type) == 'ansible.collection_verison':
+    #print(pc.pulp_type)
+    if str(pc.pulp_type) == 'ansible.collection_version':
         cv = pc.cast()
         ns = cv.namespace.name
         content_collection_namespaces[ns] = None
@@ -34,7 +33,7 @@ for pc in published_content:
     ns = pc.cast()
     content_namespaces[ns.name] = pc.pulp_id
 
-sys.exit(0)
+# sys.exit(0)
 
 print('----------------------------')
 print('CURRENT')
@@ -55,8 +54,8 @@ for gnamespace in Namespace.objects.order_by('name').values('id', 'name'):
     if gname in content_namespaces:
         continue
     # this will limit to just namespaces with collections ...
-    #if gname not in content_collection_namespaces:
-    #    continue
+    if gname not in content_collection_namespaces:
+        continue
     if gname not in anmap:
         continue
     if not anmap[gname].get('metadata'):
