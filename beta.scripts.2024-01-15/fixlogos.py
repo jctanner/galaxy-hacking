@@ -9,6 +9,7 @@ from galaxy_ng.app.models import Namespace
 from pulp_ansible.app.models import AnsibleRepository
 from pulp_ansible.app.models import AnsibleNamespace
 from pulp_ansible.app.models import AnsibleNamespaceMetadata
+from pulp_ansible.app.models import CollectionVersion
 
 from pulpcore.plugin.constants import TASK_FINAL_STATES, TASK_STATES
 from pulpcore.plugin.tasking import dispatch, add_and_remove
@@ -21,17 +22,22 @@ django_guid.set_guid(django_guid.utils.generate_guid())
 published = AnsibleRepository.objects.filter(name='published').first()
 published_content = published.content.all()
 content_namespaces = {}
-content_collection_namespaces = {}
+
 for pc in published_content:
     #print(pc.pulp_type)
-    if str(pc.pulp_type) == 'ansible.collection_version':
-        cv = pc.cast()
-        ns = cv.namespace
-        content_collection_namespaces[ns] = None
+    #if str(pc.pulp_type) == 'ansible.collection_version':
+    #    cv = pc.cast()
+    #    ns = cv.namespace
+    #    content_collection_namespaces[ns] = None
     if str(pc.pulp_type) != 'ansible.namespace':
         continue
     ns = pc.cast()
     content_namespaces[ns.name] = pc.pulp_id
+
+
+content_collection_namespaces = {}
+for cv in CollectionVersion.objects.values('namespace', 'name'):
+    content_collection_namespaces[cv['namespace']] = None
 
 # sys.exit(0)
 
