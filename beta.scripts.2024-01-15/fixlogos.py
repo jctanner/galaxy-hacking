@@ -75,7 +75,9 @@ for idc,chunk in enumerate(chunks):
     # def add_and_remove(repository_pk, add_content_units, remove_content_units, base_version_pk=None):
     kwargs = {
         'repository_pk': str(published.pulp_id),
-        'add_content_units': new_content
+        'add_content_units': new_content,
+        'remove_content_units': []
+
     }
 
     task = dispatch(add_and_remove, kwargs=kwargs, exclusive_resources=[published])
