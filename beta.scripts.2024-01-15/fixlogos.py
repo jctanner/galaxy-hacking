@@ -81,6 +81,7 @@ for idc,chunk in enumerate(chunks):
     }
 
     print(kwargs)
+    
 
     task = dispatch(add_and_remove, kwargs=kwargs, exclusive_resources=[published])
 
