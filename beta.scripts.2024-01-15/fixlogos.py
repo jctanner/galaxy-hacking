@@ -21,7 +21,12 @@ django_guid.set_guid(django_guid.utils.generate_guid())
 published = AnsibleRepository.objects.filter(name='published').first()
 published_content = published.content.all()
 content_namespaces = {}
+content_collection_namespaces = {}
 for pc in published_content:
+    if str(pc.pulp_type) == 'ansible.collection_verison':
+        cv = pc.cast()
+        ns = cv.namespace.name
+        content_collection_namespaces[ns] = None
     if str(pc.pulp_type) != 'ansible.namespace':
         continue
     ns = pc.cast()
@@ -44,6 +49,9 @@ content_namespaces_to_add = {}
 for gnamespace in Namespace.objects.order_by('name').values('id', 'name'):
     gname = gnamespace['name']
     if gname in content_namespaces:
+        continue
+    # this will limit to just namespaces with collections ...
+    if gname not in content_collection_namespaces:
         continue
     if gname not in anmap:
         continue
