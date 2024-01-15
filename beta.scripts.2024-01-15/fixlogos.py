@@ -26,7 +26,7 @@ for pc in published_content:
     #print(pc.pulp_type)
     if str(pc.pulp_type) == 'ansible.collection_version':
         cv = pc.cast()
-        ns = cv.namespace.name
+        ns = cv.namespace
         content_collection_namespaces[ns] = None
     if str(pc.pulp_type) != 'ansible.namespace':
         continue
