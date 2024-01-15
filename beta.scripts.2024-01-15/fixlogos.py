@@ -23,6 +23,8 @@ published_content = published.content.all()
 content_namespaces = {}
 content_collection_namespaces = {}
 for pc in published_content:
+
+    print(pc.pulp_type)
     if str(pc.pulp_type) == 'ansible.collection_verison':
         cv = pc.cast()
         ns = cv.namespace.name
@@ -31,6 +33,8 @@ for pc in published_content:
         continue
     ns = pc.cast()
     content_namespaces[ns.name] = pc.pulp_id
+
+sys.exit(0)
 
 print('----------------------------')
 print('CURRENT')
