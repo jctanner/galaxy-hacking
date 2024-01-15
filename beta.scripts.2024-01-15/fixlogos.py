@@ -51,8 +51,8 @@ for gnamespace in Namespace.objects.order_by('name').values('id', 'name'):
     if gname in content_namespaces:
         continue
     # this will limit to just namespaces with collections ...
-    if gname not in content_collection_namespaces:
-        continue
+    #if gname not in content_collection_namespaces:
+    #    continue
     if gname not in anmap:
         continue
     if not anmap[gname].get('metadata'):
@@ -76,6 +76,9 @@ for idc,chunk in enumerate(chunks):
     print('---------------')
 
     print(sorted(chunk))
+
+    if 'newrelic' not in chunk:
+        continue
 
     new_content = []
     for name in chunk:
