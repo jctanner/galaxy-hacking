@@ -67,6 +67,8 @@ for idc,chunk in enumerate(chunks):
     print(f'{len(chunks)} | {idc}')
     print('---------------')
 
+    print(sorted(chunk))
+
     new_content = []
     for name in chunk:
         new_content.append(str(anmap[name]['namespace_id']))
