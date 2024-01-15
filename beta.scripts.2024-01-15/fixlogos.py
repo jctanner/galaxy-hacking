@@ -60,7 +60,7 @@ print(len(list(content_namespaces_to_add.keys())))
 
 # now add them all ... ?
 chunk_size = 50
-names = list(content_namespaces_to_add.keys())
+names = sorted(list(content_namespaces_to_add.keys()))
 chunks = [names[i:i + chunk_size] for i in range(0, len(names), chunk_size)]
 for idc,chunk in enumerate(chunks):
     print('---------------')
@@ -88,7 +88,7 @@ for idc,chunk in enumerate(chunks):
     task_id = str(task.pulp_id)
 
     while task.state not in TASK_FINAL_STATES:
-        print(task.refresh_from_db())
+        task.refresh_from_db()
         print(f'\t{task.state}')
         time.sleep(1)
 
