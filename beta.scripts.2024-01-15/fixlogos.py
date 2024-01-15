@@ -84,6 +84,8 @@ for idc,chunk in enumerate(chunks):
 
 
     task = dispatch(add_and_remove, kwargs=kwargs, exclusive_resources=[published])
+    print(task.pulp_id)
+    task_id = str(task.pulp_id)
 
     while task.state not in TASK_FINAL_STATES:
         print(task.refresh_from_db())
