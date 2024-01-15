@@ -59,7 +59,7 @@ print('----------------------------')
 print(len(list(content_namespaces_to_add.keys())))
 
 # now add them all ... ?
-chunk_size = 50
+chunk_size = 200
 names = sorted(list(content_namespaces_to_add.keys()))
 chunks = [names[i:i + chunk_size] for i in range(0, len(names), chunk_size)]
 for idc,chunk in enumerate(chunks):
