@@ -86,8 +86,8 @@ for idc,chunk in enumerate(chunks):
 
     print(sorted(chunk))
 
-    if 'newrelic' not in chunk:
-        continue
+    #if 'newrelic' not in chunk:
+    #    continue
 
     new_content = []
     for name in chunk:
