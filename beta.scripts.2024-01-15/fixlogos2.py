@@ -76,8 +76,8 @@ def set_namespace_avatars(content_logos_to_set):
         ns.avatar_url = avatar_url
         ns.save()
 
-    if content_logos_to_set:
-        import epdb; epdb.st()
+    #if content_logos_to_set:
+    #    import epdb; epdb.st()
 
 
 def make_avatar_content(content_namespaces_to_make):
