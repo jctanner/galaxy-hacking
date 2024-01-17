@@ -22,29 +22,21 @@ django_guid.set_guid(django_guid.utils.generate_guid())
 published = AnsibleRepository.objects.filter(name='published').first()
 published_content = published.content.all()
 content_namespaces = {}
-
 for pc in published_content:
-    #print(pc.pulp_type)
-    #if str(pc.pulp_type) == 'ansible.collection_version':
-    #    cv = pc.cast()
-    #    ns = cv.namespace
-    #    content_collection_namespaces[ns] = None
     if str(pc.pulp_type) != 'ansible.namespace':
         continue
     ns = pc.cast()
     content_namespaces[ns.name] = pc.pulp_id
 
-
+# Make a list of collection namespaces ...
 content_collection_namespaces = {}
 for cv in CollectionVersion.objects.values('namespace', 'name'):
     content_collection_namespaces[cv['namespace']] = None
 
-# sys.exit(0)
-
-print('----------------------------')
-print('CURRENT')
-print('----------------------------')
-pprint(content_namespaces)
+print('---------------------------------------------------')
+print('CURRENT CONTENT NAMESPACES IN THE PUBLISHED REPO')
+print('---------------------------------------------------')
+pprint(len(list(content_namespaces.keys())))
 
 # map out all the -ansible- namespace and metadata objects by name ...
 anamespaces = AnsibleNamespace.objects.values('pulp_id', 'name')
@@ -55,25 +47,41 @@ for metadata in AnsibleNamespaceMetadata.objects.order_by('pulp_created').values
 
 # figure out which ones didn't get added to the repo ...
 content_namespaces_to_add = {}
+content_namespaces_to_make = {}
 for gnamespace in Namespace.objects.order_by('name').values('id', 'name'):
     gname = gnamespace['name']
+
+    # this namespace is already content in the repo ...
     if gname in content_namespaces:
         continue
+
     # this will limit to just namespaces with collections ...
-    if gname not in content_collection_namespaces:
-        continue
+    #if gname not in content_collection_namespaces:
+    #    continue
+
+    # does the namespace have related content objects?
     if gname not in anmap:
+        content_namespaces_to_make[gname] = None
         continue
+
+    # does the namespace have related metadata content objects?
     if not anmap[gname].get('metadata'):
+        content_namespaces_to_make[gname] = None
         continue
 
     content_namespaces_to_add[gname] = [anmap[gname]['namespace_id'], anmap[gname]['metadata']]
 
-print('----------------------------')
-print('TO ADD')
-print('----------------------------')
-#  pprint(content_namespaces_to_add)
+
+print('------------------------------------------------')
+print('TOTAL NAMESPACES TO MAKE CONTENT FOR')
+print('------------------------------------------------')
+print(len(list(content_namespaces_to_make.keys())))
+
+print('------------------------------------------------')
+print('TOTAL NAMESPACES TO ADD TO THE PUBLISHED REPO')
+print('------------------------------------------------')
 print(len(list(content_namespaces_to_add.keys())))
+
 
 # now add them all ... ?
 chunk_size = 200
@@ -85,9 +93,6 @@ for idc,chunk in enumerate(chunks):
     print('---------------')
 
     print(sorted(chunk))
-
-    #if 'newrelic' not in chunk:
-    #    continue
 
     new_content = []
     for name in chunk:
@@ -101,9 +106,7 @@ for idc,chunk in enumerate(chunks):
         'remove_content_units': []
 
     }
-
     print(kwargs)
-
 
     task = dispatch(add_and_remove, kwargs=kwargs, exclusive_resources=[published])
     print(task.pulp_id)
