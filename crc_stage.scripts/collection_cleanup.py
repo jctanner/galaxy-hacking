@@ -2,6 +2,7 @@
 
 
 import datetime
+import json
 import os
 import sys
 import platform
@@ -28,6 +29,49 @@ class CollectionDeleteFailedException(Exception):
 
 class CollectionDeleteFailedOnDependencyException(Exception):
     pass
+
+
+class ActionCacher:
+    def __init__(self):
+        self.cachefile = '.actions.json'
+        self._cache = None
+        self.get_cache()
+
+    def get_cache(self):
+        if not os.path.exists(self.cachefile):
+            self._cache = {}
+        else:
+            try:
+                with open(self.cachefile, 'r') as f:
+                    self._cache = json.loads(f.read())
+            except json.decoder.JSONDecodeError:
+                self._cache = {}
+
+        return self._cache
+
+    def repo_collection_is_deleted(self, repo, namespace, name):
+        key = self.key_for_repo_collection(repo, namespace, name)
+        if key not in self._cache:
+            return False
+        if self._cache[key].get('deleted') == True:
+            return True
+        return False
+
+    def key_for_repo_collection(self, repo, namespace, name):
+        key = '.'.join([repo, namespace, name])
+        return key
+
+    def write_cache(self):
+        with open(self.cachefile, 'w') as f:
+            f.write(json.dumps(self._cache))
+
+    def store_collection_deleted(self, repo, namespace, name):
+        key = self.key_for_repo_collection(repo, namespace, name)
+        if key not in self._cache:
+            self._cache[key] = {'deleted': True}
+        else:
+            self._cache[key]['deleted'] = True
+        self.write_cache()
 
 
 def seconds_to_dhms(seconds):
@@ -247,6 +291,9 @@ class SSOClient:
 
 class StageCleaner:
     def __init__(self):
+
+        self.ac = ActionCacher()
+
         self.http_proxy = os.environ.get('HTTP_PROXY', 'http://squid.corp.redhat.com:3128')
         self.auth_url = os.environ.get('AUTH_URL')
         self.refresh_token = os.environ.get('GALAXY_REFRESH_TOKEN')
@@ -338,11 +385,18 @@ class StageCleaner:
         matches = sorted(set(matches))
 
         for repo in matches:
+            if self.ac.repo_collection_is_deleted(repo, namespace, name):
+                logger.info('SKIPPING: ALREADY DELETED')
+                continue
+
             logger.info(f'DELETE {namespace}.{name} FROM {repo} ...')
             try:
                 self.delete_collection_from_repo(namespace, name, repo)
+                self.ac.store_collection_deleted(repo, namespace, name)
+                continue
             except CollectionNotFoundException:
                 logger.info('SKIPPING: COLLECTION NOT FOUND')
+                self.ac.store_collection_deleted(repo, namespace, name)
                 continue
             except CollectionDeleteFailedException:
                 logger.error('SKIPPING: COLLECTION DELETE FAILED')
@@ -397,6 +451,10 @@ class StageCleaner:
             # logger.info(task_url)
             rr = self.client.get(task_url, usecache=False)
             ds = rr.json()
+
+            if 'state' not in ds:
+                import epdb; epdb.st()
+
             state = ds['state']
             logger.info(f'{task_url} -> {state}')
             if state not in ['waiting', 'running']:
