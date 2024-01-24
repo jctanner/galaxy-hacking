@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 
+import datetime
 import os
 import sys
 import platform
@@ -27,6 +28,16 @@ class CollectionDeleteFailedException(Exception):
 
 class CollectionDeleteFailedOnDependencyException(Exception):
     pass
+
+
+def seconds_to_dhms(seconds):
+    days = seconds // (24 * 3600)
+    seconds %= (24 * 3600)
+    hours = seconds // 3600
+    seconds %= 3600
+    minutes = seconds // 60
+    seconds %= 60
+    return f"{days} days, {hours} hours, {minutes} minutes"
 
 
 # https://github.com/ansible/galaxykit/blob/main/galaxykit/client.py#L29
@@ -170,7 +181,6 @@ class SSOClient:
         rkwargs['proxies'] = self.proxies
         if kwargs.get('data'):
             rkwargs['data'] = kwargs['data']
-        # return self.session.get(url, headers=headers, proxies=self.proxies)
 
         if kwargs.get('usecache') == False:
             return requests.get(url, **rkwargs)
@@ -187,8 +197,6 @@ class SSOClient:
         rkwargs['proxies'] = self.proxies
         if kwargs.get('data'):
             rkwargs['data'] = kwargs['data']
-        # return self.session.get(url, headers=headers, proxies=self.proxies)
-        #return self.session.post(url, **rkwargs)
 
         if kwargs.get('usecache') == False:
             return requests.post(url, **rkwargs)
@@ -207,35 +215,21 @@ class SSOClient:
         if kwargs.get('data'):
             rkwargs['data'] = kwargs['data']
 
-        # return self.session.delete(url, headers=headers, proxies=self.proxies)
-        #return self.session.delete(url, **rkwargs)
-
         if kwargs.get('usecache') == False:
             return requests.delete(url, **rkwargs)
         else:
             return self.session.delete(url, **rkwargs)
 
-    # https://github.com/ansible/galaxykit/blob/main/galaxykit/client.py#L172C1-L193C35
     def _refresh_jwt_token(self, grant_type='password'):
         logger.info('refresh token')
 
-        '''
-        payload = "grant_type=refresh_token&client_id=%s&refresh_token=%s" % (
-            "cloud-services",
-            self.refresh_token,
-        )
-        '''
-
         if grant_type != 'password':
-            # Production workflows on CRC will use refresh_tokens ...
             payload = {
                 'grant_type': 'refresh_token',
                 'client_id': 'cloud-services',
                 'refresh_token': self.refresh_token
             }
         else:
-            # ephemeral/keycloak doesn't have any way for us to set pre-defined
-            # refresh tokens, so we have to use a password grant instead ...
             payload = {
                 'grant_type': 'password',
                 'client_id': 'cloud-services',
@@ -312,11 +306,24 @@ class StageCleaner:
         cols_by_age = [(x[0],x[1]) for x in cols_by_age.items()]
         cols_by_age = sorted(cols_by_age, key=lambda x: x[1])
         logger.info(f'DELETE {len(cols_by_age)} COLLECTIONS ...')
+
+        durations = []
+
         for idc,ctuple in enumerate(cols_by_age):
             namespace = ctuple[0][0]
             name = ctuple[0][1]
             logger.info(f'DELETE {idc+1} of {len(cols_by_age)} {namespace}.{name} ...')
+            t1 = datetime.datetime.now()
             self.delete_collection(namespace, name)
+            tN = datetime.datetime.now()
+            delta = (tN - t1).total_seconds()
+            durations.append(delta)
+
+            if len(durations) > 2:
+                avg = sum(durations) / len(durations)
+                seconds_left = (len(cols_by_age) - idc) * avg
+                remaining = seconds_to_dhms(seconds_left)
+                logger.info(f'ESTIMATED TIME REMAINING {remaining}')
 
     def delete_collection(self, namespace, name):
         # https://github.com/ansible/galaxy_ng/blob/master/galaxy_ng/tests/integration/api/test_collection_delete.py#L27
