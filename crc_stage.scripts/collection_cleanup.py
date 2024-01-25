@@ -195,7 +195,10 @@ class SSOClient:
             logger.info(progress + next_url)
 
             rr = self.get(next_url)
-            ds = rr.json()
+            try:
+                ds = rr.json()
+            except requests.exceptions.JSONDecodeError:
+                import epdb; epdb.st()
 
             # check for expired token ...
             if 'data' not in ds:
@@ -227,9 +230,15 @@ class SSOClient:
             rkwargs['data'] = kwargs['data']
 
         if kwargs.get('usecache') == False:
-            return requests.get(url, **rkwargs)
+            rr = requests.get(url, **rkwargs)
         else:
-            return self.session.get(url, **rkwargs)
+            rr = self.session.get(url, **rkwargs)
+
+        if rr.status_code == 401 and 'claim expired' in rr.text:
+            self._refresh_jwt_token()
+            return self.get(*args, **kwargs)
+
+        return rr
 
     def post(self, *args, **kwargs):
         url = args[0]
@@ -260,9 +269,15 @@ class SSOClient:
             rkwargs['data'] = kwargs['data']
 
         if kwargs.get('usecache') == False:
-            return requests.delete(url, **rkwargs)
+            rr = requests.delete(url, **rkwargs)
         else:
-            return self.session.delete(url, **rkwargs)
+            rr = self.session.delete(url, **rkwargs)
+
+        if rr.status_code == 401 and 'claim expired' in rr.text:
+            self._refresh_jwt_token()
+            return self.delete(*args, **kwargs)
+
+        return rr
 
     def _refresh_jwt_token(self, grant_type='password'):
         logger.info('refresh token')
