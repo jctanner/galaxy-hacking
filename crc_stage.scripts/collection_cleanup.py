@@ -360,7 +360,7 @@ class StageCleaner:
     def process(self):
         # list all namespaces ...
         results = self.client.paginated_get(
-            self.api_host.rstrip('/') + '/api/automation-hub/_ui/v1/namespaces/'
+            self.api_host.rstrip('/') + '/api/automation-hub/_ui/v1/namespaces/?limit=100'
         )
         self.namespaces = dict((x['name'], x) for x in results)
 
@@ -373,7 +373,7 @@ class StageCleaner:
 
         # list all collection versions ...
         results = self.client.paginated_get(
-            self.api_host.rstrip('/') + '/api/automation-hub/v3/plugin/ansible/search/collection-versions/'
+            self.api_host.rstrip('/') + '/api/automation-hub/v3/plugin/ansible/search/collection-versions/?limit=100'
         )
         self.cvs = [RepositoryCollectionVersion(x) for x in results]
         self.cvs = sorted(self.cvs)
