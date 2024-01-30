@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 
+import argparse
 import datetime
 import json
 import os
@@ -8,6 +9,7 @@ import sys
 import platform
 import requests
 import time
+import urllib3
 
 from datetime import timedelta
 from requests_cache import CachedSession
@@ -28,6 +30,10 @@ class CollectionDeleteFailedException(Exception):
 
 
 class CollectionDeleteFailedOnDependencyException(Exception):
+    pass
+
+
+class ServerErrorException(Exception):
     pass
 
 
@@ -198,7 +204,8 @@ class SSOClient:
             try:
                 ds = rr.json()
             except requests.exceptions.JSONDecodeError:
-                import epdb; epdb.st()
+                if 'Server Error (500)' in rr.text:
+                    raise ServerErrorException(rr.text)
 
             # check for expired token ...
             if 'data' not in ds:
@@ -207,14 +214,23 @@ class SSOClient:
                 rr = self.get(next_url)
                 ds = rr.json()
 
-            for res in ds['data']:
+            dkey = 'data'
+            if 'results' in ds:
+                dkey = 'results'
+            for res in ds[dkey]:
                 results.append(res)
 
-            count = ds['meta']['count']
+            if 'count' in ds:
+                count = ds['count']
+            else:
+                count = ds['meta']['count']
 
             next_url = None
-            if ds['links'].get('next'):
-                next_url = self.api_host.rstrip('/') + ds['links']['next']
+            if 'next' in ds and ds['next']:
+                import epdb; epdb.st()
+            elif 'links' in ds:
+                if ds['links'].get('next'):
+                    next_url = self.api_host.rstrip('/') + ds['links']['next']
 
         return results
 
@@ -229,10 +245,19 @@ class SSOClient:
         if kwargs.get('data'):
             rkwargs['data'] = kwargs['data']
 
-        if kwargs.get('usecache') == False:
-            rr = requests.get(url, **rkwargs)
-        else:
-            rr = self.session.get(url, **rkwargs)
+        try:
+            if kwargs.get('usecache') == False:
+                rr = requests.get(url, **rkwargs)
+            else:
+                rr = self.session.get(url, **rkwargs)
+        except urllib3.exceptions.MaxRetryError:
+            logger.error('MAXTRETRYERROR ... waiting 5s')
+            time.sleep(5)
+            return self.get(*args, **kwargs)
+        except requests.exceptions.SSLError:
+            logger.error('SSLERROR ... waiting 5s')
+            time.sleep(5)
+            return self.get(*args, **kwargs)
 
         if rr.status_code == 401 and 'claim expired' in rr.text:
             self._refresh_jwt_token()
@@ -330,11 +355,21 @@ class StageCleaner:
         ds = rr.json()
         assert "available_versions" in ds, rr.text
 
+        self.process()
+
+    def process(self):
         # list all namespaces ...
         results = self.client.paginated_get(
             self.api_host.rstrip('/') + '/api/automation-hub/_ui/v1/namespaces/'
         )
-        namespaces = dict((x['name'], x) for x in results)
+        self.namespaces = dict((x['name'], x) for x in results)
+
+        # list all repos ...
+        repos = self.client.paginated_get(self.api_host.rstrip('/') + '/api/automation-hub/pulp/api/v3/repositories/')
+        self.repos = dict((x['name'], x) for x in repos)
+
+        # list all collections in each repo ...
+        self.cols_by_repo = self.get_collections_in_all_repos(list(self.repos.keys()))
 
         # list all collection versions ...
         results = self.client.paginated_get(
@@ -342,10 +377,43 @@ class StageCleaner:
         )
         self.cvs = [RepositoryCollectionVersion(x) for x in results]
         self.cvs = sorted(self.cvs)
+
+    def delete_all_cmd(self):
+        raise Exception('not yet implemented')
+
+    def delete_repositories_cmd(self):
+        raise Exception('not yet implemented')
+
+    def delete_namespaces_cmd(self):
+        self.delete_empty_namespaces()
+
+    def delete_collections_cmd(self):
+        raise Exception('not yet implemented')
+
+    def delete_collection_versions_cmd(self):
+        self.delete_collection_versions()
+
+    def delete_empty_namespaces(self):
+
+        # cnamespaces = sorted(set([x.namespace for x in self.cvs]))
+
+        repo_namespaces = set()
+        for reponame, cmap in self.cols_by_repo.items():
+            for cv,cdata in cmap.items():
+                repo_namespaces.add(cdata['namespace'])
+        cnamespaces = sorted(repo_namespaces)
+
+        anamespaces = sorted(list(self.namespaces.keys()))
+        empty_namespaces = set(anamespaces) - set(cnamespaces)
+        self.delete_namespaces(empty_namespaces)
+
+    def delete_collection_versions(self):
+
         unique_cvs = dict((x.pulp_href, None) for x in self.cvs)
         unique_cvs = sorted(list(unique_cvs.keys()))
         print(f'TOTAL UNIQUE CVS: {len(unique_cvs)}')
 
+        # map out by namespace.name ...
         col_map = {}
         for cv in self.cvs:
             fqn = (cv.namespace, cv.name)
@@ -386,6 +454,77 @@ class StageCleaner:
                 seconds_left = (len(cols_by_age) - idc) * avg
                 remaining = seconds_to_dhms(seconds_left)
                 logger.info(f'ESTIMATED TIME REMAINING {remaining}')
+
+    def get_collections_in_all_repos(self, reponames):
+        rmap = {}
+        reponames = sorted(reponames)
+        for reponame in reponames:
+            cols = self.get_collections_in_repo(reponame)
+            rmap[reponame] = cols
+            # import epdb; epdb.st()
+        return rmap
+
+    def get_collections_in_repo(self, reponame):
+        # https://github.com/ansible/galaxy_ng/blob/master/galaxy_ng/tests/integration/utils/collections.py#L564C9-L564C66
+        # https://console.stage.redhat.com/api/automation-hub/content/published/v3/plugin/ansible/content/published/collections/index/?limit=10&offset=650
+        url = self.api_host.rstrip('/') + f'/api/automation-hub/content/{reponame}/v3/plugin/ansible/content/{reponame}/collections/index/?limit=100'
+        try:
+            results = self.client.paginated_get(url)
+        except ServerErrorException:
+            logger.error(f'500ISE trying to get collections in {reponame}')
+            return {}
+        cols = dict(((x['namespace'], x['name']), x) for x in results)
+        return cols
+
+    def delete_namespaces(self, namespaces):
+        for nsid,ns in enumerate(namespaces):
+            logger.info(f'{len(namespaces)}|{nsid} DELETE NAMESPACE {ns}')
+            self.delete_namespace(ns)
+
+    def delete_namespace(self, namespace, retry=True):
+        # https://github.com/ansible/galaxykit/blob/main/galaxykit/namespaces.py#L104-L109
+        url = self.api_host.rstrip('/') + f'/api/automation-hub/_ui/v1/namespaces/{namespace}/'
+
+        rr = self.client.delete(url, usecache=False)
+
+        if rr.status_code == 400:
+            if 'still collections associated with it' in rr.text and retry:
+                self.delete_namespace_collections(namespace)
+                self.delete_namespace(namespace, retry=False)
+            # raise Exception(f'CAN NOT DELETE {namespace} {rr.text}')
+            logger.error(f'CAN NOT DELETE {namespace} {rr.text}')
+            return
+
+        '''
+        if 'task' not in ds:
+            if 'require it' in ds.get('detail', ''):
+                raise CollectionDeleteFailedOnDependencyException()
+
+            import epdb; epdb.st()
+        '''
+
+        # no json nor any tasks are returned from a namespace delete
+        if rr.status_code == 404:
+            return
+        if rr.status_code != 204:
+            import epdb; epdb.st()
+        assert rr.status_code == 204
+
+    def delete_namespace_collections(self, namespace):
+        to_delete = []
+        for reponame, cmap in self.cols_by_repo.items():
+            for ckey in cmap.keys():
+                if ckey[0] == namespace:
+                    to_delete.append([reponame, ckey[0], ckey[1]])
+
+        if not to_delete:
+            return
+
+        for idx,rcol in enumerate(to_delete):
+            logger.info(f'{len(to_delete)}|{idx} DELETE {rcol} FOR NAMESPACE {namespace} CLEANUP')
+            self.delete_collection_from_repo(rcol[1], rcol[2], rcol[0])
+
+        # import epdb; epdb.st()
 
     def delete_collection(self, namespace, name):
         # https://github.com/ansible/galaxy_ng/blob/master/galaxy_ng/tests/integration/api/test_collection_delete.py#L27
@@ -484,8 +623,14 @@ class StageCleaner:
 
 def main():
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument('action', choices=['all', 'repositories', 'namespaces', 'collections', 'collection_versions'])
+    args = parser.parse_args()
+
     sc = StageCleaner()
-    import epdb; epdb.st()
+    function_name = 'delete_' + args.action + '_cmd'
+    function = getattr(sc, function_name)
+    function()
 
 
 if __name__ == "__main__":
