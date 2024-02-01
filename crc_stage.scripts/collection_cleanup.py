@@ -583,7 +583,10 @@ class StageCleaner:
                 raise CollectionNotFoundException()
 
         rr = self.client.delete(url, usecache=False)
-        ds = rr.json()
+        try:
+            ds = rr.json()
+        except requests.exceptions.JSONDecodeError:
+            import epdb; epdb.st()
 
         if 'task' not in ds:
             if 'require it' in ds.get('detail', ''):
@@ -604,7 +607,11 @@ class StageCleaner:
         while True:
             # logger.info(task_url)
             rr = self.client.get(task_url, usecache=False)
-            ds = rr.json()
+
+            try:
+                ds = rr.json()
+            except requests.exceptions.JSONDecodeError:
+                import epdb; epdb.st()
 
             if 'state' not in ds:
                 import epdb; epdb.st()
