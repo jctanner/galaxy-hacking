@@ -319,7 +319,7 @@ class WorkflowJobStep:
             self.update_github_env('GITHUB_PR_COMMITS_URL', '')
             return
 
-        import epdb; epdb.st()
+        #import epdb; epdb.st()
 
         repositoryurl = f'https://github.com/{repo}'
 
@@ -359,7 +359,13 @@ class WorkflowJobStep:
         subprocess.run(f'git fetch origin {github_sha}', shell=True)
         subprocess.run(f'git checkout {github_sha}', shell=True)
 
+    def checkout_v4(self):
+        return self.checkout_v3()
+
     def setup_python_v2(self):
+        return self.setup_python_v3()
+
+    def setup_python_v4(self):
         return self.setup_python_v3()
 
     def setup_python_v3(self):
@@ -847,7 +853,7 @@ class AbstractExecutor:
                 # copy the checkout to the workdir ...
                 src = self._checkout
                 dst = os.path.join(tdir, os.path.basename(self._checkout))
-                import epdb; epdb.st()
+                # import epdb; epdb.st()
                 shutil.copytree(src, dst)
                 #import epdb; epdb.st()
 
@@ -906,8 +912,15 @@ class AbstractExecutor:
             assert pid.returncode == 0
             self._temporary_checkout = True
 
+            # workaround for galaxy-importer.cfg
+            if self._repo.endswith('/galaxy_ng'):
+                # remove the busted symlink
+                gicfg = os.path.join(self._checkout, 'dev', 'standalone-community', 'galaxy-importer.cfg')
+                if os.path.islink(gicfg):
+                    os.unlink(gicfg)
+
             final_checkout = os.path.join(self._workspace, os.path.basename(self._repo))
-            import epdb; epdb.st()
+            #import epdb; epdb.st()
             shutil.copytree(self._checkout, final_checkout)
             self._checkout = final_checkout
 

@@ -15,8 +15,8 @@ source ~/venv/bin/activate
 
 cd /vagrant
 ./scripts/docker-killall
-DELETE_ALL=1 ./scripts/docker-rmall
-docker images | fgrep ci_build | awk '{print $3}' | xargs -I {} docker rmi {}
+#DELETE_ALL=1 ./scripts/docker-rmall
+#docker images | fgrep ci_build | awk '{print $3}' | xargs -I {} docker rmi {}
 
 set -e
 
@@ -72,7 +72,7 @@ echo $(pwd)
 #./ghacktion --local --repo=pulp/pulp_ansible --number=1062 run --file=ci.yml --job=test --noclean
 #./ghacktion --local --repo=pulp/pulp_ansible --number=1067 run --file=ci.yml --job=test --noclean
 
-/vagrant/ghacktion/ghacktion.py --local --checkout=$SRCPATH/galaxy_ng list --file=ci.yml --job=test
+python3 /vagrant/ghacktion/ghacktion.py --local --checkout=$SRCPATH/galaxy_ng list --file=ci.yml --job=test
 #exit 0
 
-/vagrant/ghacktion/ghacktion.py --local --checkout=$SRCPATH/galaxy_ng run --file=ci.yml --job=test --noclean
+python3 /vagrant/ghacktion/ghacktion.py --local --checkout=$SRCPATH/galaxy_ng run --file=ci.yml --job=test --noclean

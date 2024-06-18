@@ -59,7 +59,8 @@ Vagrant.configure("2") do |config|
 
   config.vm.define "ghacktion" do |ghacktion|
     #ghacktion.vm.box = "generic/ubuntu2204"
-    ghacktion.vm.box = "generic/debian11"
+    #ghacktion.vm.box = "generic/debian11"
+    ghacktion.vm.box = "generic/debian12"
     ghacktion.vm.hostname = "ghacktion"
 
     ghacktion.vm.provider :libvirt do |libvirt|
@@ -76,14 +77,17 @@ Vagrant.configure("2") do |config|
        #apt -y upgrade
        apt -y install git jq python3-pip docker.io libpq-dev python3-virtualenv
 
+       python3 -m venv ~/venv.ansible
+       source ~/venv.ansible
+
        # there should be a package for this right?
        if [ ! -L /usr/local/bin/python ]; then
          ln -s /usr/bin/python3 /usr/local/bin/python
        fi
-       pip3 install -U pip wheel
-       which ansible || pip3 install ansible
-       ansible-galaxy role install geerlingguy.docker
-       cd /vagrant && ansible-playbook -i 'localhost,' playbooks/docker.yml
+       ~/venv.ansible/bin/pip3 install -U pip wheel
+       which ansible || ~/venv.ansible/bin/pip3 install ansible
+       ~/venv.ansible/bin/ansible-galaxy role install geerlingguy.docker
+       cd /vagrant && ~/venv.ansible/bin/ansible-playbook -i 'localhost,' playbooks/docker.yml
 
        # pulp workarounds?
        mkdir -p /var/lib/gems
@@ -95,6 +99,7 @@ Vagrant.configure("2") do |config|
          cp -Rp /home/vagrant /home/runner
          chown -R runner:runner /home/runner
          usermod -aG docker runner
+         usermod -aG docker vagrant
          cp /etc/sudoers.d/vagrant /etc/sudoers.d/runner
          sed -i.bak 's:vagrant:runner:g' /etc/sudoers.d/runner
          rm -f /etc/sudoers.d/runner.bak
