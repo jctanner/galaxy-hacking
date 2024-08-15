@@ -279,14 +279,20 @@ def run_services():
     print('RUN SERVICES')
     print('#' * 50)
 
-    commands = [
-        'PULP_SETTINGS=/etc/pulp/settings.py pulpcore-manager runserver',
-        'PULP_SETTINGS=/etc/pulp/settings.py pulpcore-worker'
-    ]
+    commands = []
+    if shutil.which('pulpcore-api'):
+        commands.append('PULP_SETTINGS=/etc/pulp/settings.py pulpcore-api')
+    else:
+        commands.append('PULP_SETTINGS=/etc/pulp/settings.py pulpcore-manager runserver')
 
-    if not os.path.exists('/usr/local/bin/pulpcore-worker'):
+    commands.append('PULP_SETTINGS=/etc/pulp/settings.py pulpcore-content')
+
+    if shutil.which('pulpcore-worker'):
+        commands.append('PULP_SETTINGS=/etc/pulp/settings.py pulpcore-worker')
+
+    else:
         # the worker
-        commands[1] = (
+        commands.append(
             'DJANGO_SETTINGS_MODULE=pulpcore.app.settings'
             + ' PULP_SETTINGS=/etc/pulp/settings.py'
             + ' rq worker -w pulpcore.tasking.worker.PulpWorker -c pulpcore.rqconfig'
