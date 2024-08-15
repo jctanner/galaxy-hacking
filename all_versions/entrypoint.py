@@ -45,6 +45,16 @@ def run_commands_in_threads(commands):
         thread.join()
 
 
+def install_time():
+    print('#' * 50)
+    print('INSTALL TIME')
+    print('#' * 50)
+
+    cmd = 'dpkg -l time || (apt -y update ; apt -y install time)'
+    pid = subprocess.run(cmd, shell=True)
+    assert pid.returncode == 0
+
+
 def install_psql():
     print('#' * 50)
     print('INSTALL PSQL')
@@ -230,7 +240,7 @@ def install_galaxy_ng():
             shell=True
         )
 
-    pid = subprocess.run(f'pip install -e /app/galaxy_ng', shell=True)
+    pid = subprocess.run(f'time pip install -e /app/galaxy_ng', shell=True)
     assert pid.returncode == 0
 
 
@@ -310,6 +320,7 @@ def run_services():
 
 def main():
 
+    install_time()
     install_ldap()
     install_galaxy_ng()
     create_database()

@@ -1,11 +1,11 @@
 #version: '3.8'
 services:
 
-  pkgproxy:
-    build:
-        context: pkgproxy
-    volumes:
-        - '.cache/packages:/src/packages'
+  # pkgproxy:
+  #  build:
+  #      context: pkgproxy
+  #  volumes:
+  #      - '.cache/packages:/src/packages'
 
   postgres:
     image: postgres:12
@@ -174,7 +174,7 @@ services:
     command: python -u /src/entrypoint.py
     volumes:
       - ".:/src"
-      - "./pip.conf:/etc/pip.conf"
+      # - "./pip.conf:/etc/pip.conf"
     depends_on:
       - postgres
       - pkgproxy
