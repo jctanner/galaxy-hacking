@@ -77,8 +77,9 @@ Vagrant.configure("2") do |config|
        #apt -y upgrade
        apt -y install git jq python3-pip docker.io libpq-dev python3-virtualenv
 
-       python3 -m venv ~/venv.ansible
-       source ~/venv.ansible
+       # python3 -m venv ~/venv.ansible
+       virtualenv ~/venv.ansible
+       source ~/venv.ansible/bin/activate
 
        # there should be a package for this right?
        if [ ! -L /usr/local/bin/python ]; then
