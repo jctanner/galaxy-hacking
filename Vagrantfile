@@ -27,6 +27,16 @@ Vagrant.configure("2") do |config|
     latest.vm.hostname = "galaxy-latest"
   end
 
+  config.vm.define "galaxy-49" do |fournine|
+    fournine.vm.box = "generic/debian11"
+    fournine.vm.hostname = "galaxy-49"
+  end
+
+  config.vm.define "galaxy-48" do |foureight|
+    foureight.vm.box = "generic/debian11"
+    foureight.vm.hostname = "galaxy-48"
+  end
+
   config.vm.define "galaxy-47" do |fourseven|
     fourseven.vm.box = "generic/debian11"
     fourseven.vm.hostname = "galaxy-47"
