@@ -90,6 +90,10 @@ Vagrant.configure("2") do |config|
        ~/venv.ansible/bin/ansible-galaxy role install geerlingguy.docker
        cd /vagrant && ~/venv.ansible/bin/ansible-playbook -i 'localhost,' playbooks/docker.yml
 
+       # install docker-compose
+       curl -L -o /tmp/docker-compose https://github.com/docker/compose/releases/download/v2.29.1/docker-compose-linux-x86_64
+       install /tmp/docker-compose /usr/local/bin/
+
        # pulp workarounds?
        mkdir -p /var/lib/gems
        chown -R vagrant:vagrant /var/lib/gems
