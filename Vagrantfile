@@ -11,7 +11,8 @@ Vagrant.configure("2") do |config|
 
   config.vm.define "galaxy-dev" do |dev|
     #dev.vm.box = "generic/ubuntu2004"
-    dev.vm.box = "generic/debian11"
+    #dev.vm.box = "generic/debian11"
+    dev.vm.box = "generic/debian12"
     dev.vm.hostname = "galaxy-dev"
 
     dev.vm.provider :libvirt do |libvirt|
@@ -85,10 +86,12 @@ Vagrant.configure("2") do |config|
        export DEBIAN_FRONTEND=noninteractive
        apt -y update
        #apt -y upgrade
-       apt -y install git jq python3-pip docker.io libpq-dev python3-virtualenv
+       #apt -y install git jq python3-pip docker.io libpq-dev python3-virtualenv
+       apt -y install git jq python3-pip docker.io libpq-dev python3.11-venv
 
        # python3 -m venv ~/venv.ansible
-       virtualenv ~/venv.ansible
+       #virtualenv ~/venv.ansible
+       python3.11 -m venv ~/venv.ansible
        source ~/venv.ansible/bin/activate
 
        # there should be a package for this right?
